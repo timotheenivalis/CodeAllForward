@@ -163,6 +163,9 @@ int main(int argc, char *argv[])
 /***********************************************************************************///Pedigree
 
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
+            //Taking a sample for Genepop before secondary contact
+            vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            NodesGridPre.clear();
 
             double AcceptanceRate[3][3];
             FAcceptanceRate(AcceptanceRate);//fixe les taux d'acceptation du partenaire en fonction du genotype lors de la formation des couples
@@ -189,7 +192,7 @@ int main(int argc, char *argv[])
             vector<vector<vector<vector<vector<int> > > > > NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
             FCorrectBounds(MovingLimit);
             FProbaID(Alleles, NodesGrid, RUN, RunQIBD);
-            FGenepopFile(Alleles,NodesGrid,RUN);
+            FGenepopFile(Alleles,NodesGrid,RUN,false);
             FIntrogressionStats(Alleles, NodesGrid, RUN);
 
 
@@ -2133,13 +2136,22 @@ int FProbaID(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<ve
 
 
 /******************************************************************/
-int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN)//doit ecrire un fichier traitable par Genepop
+int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, bool const& PreContact)//doit ecrire un fichier traitable par Genepop
 {
+
+    string Contact("");
+    if (PreContact==true)
+        {
+          Contact = "PreContact";
+        }
+
+
     if (WriteGenepopFile==true)
         {
             stringstream stst;
             stst << RUN; //transforme entier en strstr
             string fileName("GenepopFile_");
+            fileName+=Contact;
             fileName+=stst.str();
             fileName+=".txt";
             ofstream GPFile(fileName.c_str());
@@ -2282,6 +2294,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
             stringstream stst;
             stst << RUN; //transforme entier en strstr
             string fileName("GenepopIntrog_");
+            fileName+=Contact;
             fileName+=stst.str();
             fileName+=".txt";
             ofstream GPFile(fileName.c_str());
@@ -2438,6 +2451,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
             stringstream stst;
             stst << RUN; //transforme entier en strstr
             string fileName("GenepopOrigin_");
+            fileName+=Contact;
             fileName+=stst.str();
             fileName+=".txt";
             ofstream GPFile(fileName.c_str());
