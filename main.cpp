@@ -59,6 +59,7 @@ bool WriteFstHe=false;
 bool WriteGenepopFile=false;
 bool WriteGenepopIntrog=false;
 bool WriteGenepopOrigin=false;
+bool WriteGenepopAlsoPreContact=false;
 bool WriteIntrogProfile=false;
 bool WriteIntrogStats=false;
 bool EdgeEffects=true;
@@ -2141,7 +2142,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
 {
 
     string Contact("");
-    if (PreContact==true)
+    if ((PreContact==true) && (WriteGenepopAlsoPreContact==true))
         {
           Contact = "PreContact";
         }
