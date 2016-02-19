@@ -165,6 +165,7 @@ int main(int argc, char *argv[])
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
             //Taking a sample for Genepop before secondary contact
             vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            FGenepopFile(Alleles,NodesGridPre,RUN,true);
             NodesGridPre.clear();
 
             double AcceptanceRate[3][3];
