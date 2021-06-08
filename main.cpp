@@ -155,6 +155,7 @@ int main(int argc, char *argv[])
             ofstream FstHeFile("FstHeFile.txt");
             FstHeFile.close();//Ouverture et fermeture pour effacer le fichier avant l'utilisation en fin de programme
         }
+
     //Parameter Modifications pre-run
     FTranslateFitness(FitnessNormal);
     FTranslateFitness(FitnessMaladaptation);

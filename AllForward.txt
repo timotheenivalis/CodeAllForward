@@ -1,21 +1,21 @@
 %%%Demographic parameters%%%
-demesize=6 //en individus
+demesize=20 //en individus
 dimx=10
-dimy=10
+dimy=8
 Xlimit=5//doit etre egal a dimX si un seul habitat
-HabitatSlideBegin=0
-HabitatSlideEnd=0// si ==0, pas de changement d'habitat
-HabitatSlideDepth=0 // si ==0, pas de changement d'habitat
-generationnumber=10
+HabitatSlideBegin=1
+HabitatSlideEnd=6// si ==0, pas de changement d'habitat
+HabitatSlideDepth=5 // si ==0, pas de changement d'habitat
+generationnumber=250
 AllopatryLast=8000 //in generation
 
 %%%Sampling parameters%%%
 DemeSamplingRatio=1.
-IndMeanSample=2
+IndMeanSample=10
 
 %%%Dispersion parameters%%%
-dispmax=5
-mFemale=0.1
+dispmax=3
+mFemale=0.001
 geomFemale=0.1
 mMale=0.1
 geomMale=0.1
@@ -23,7 +23,7 @@ EdgeEffects=true
 
 %%%Reproduction parameters%%%
 fitnessynormal=1.0
-fitnessmaladaptation=0.9947458	
+fitnessmaladaptation=0.9,1.0	
 fitnesshybridfemale=0.9,1.0
 fitnesshybridmale=0.9,1.0
 fitnessMaladaptMt=1.0 //fitness of the bad strand (habitat 1)
@@ -34,25 +34,25 @@ ChoosyFemale=0.5 //rate of females which starts the couple formation
 
 %%%Markers parameters%%%
 MuRate=5e-004
-AutLociNumber=10
-InterRecombiRate=0 //must <= 0.5
-IntraRecombiRate=0 //must <= 0.5
+AutLociNumber=20
+InterRecombiRate=0.5 //must <= 0.5
+IntraRecombiRate=0.5 //must <= 0.5
 
 %%%Simulation parameters%%%
-RunNumber=3
+RunNumber=2
 MigRatesCorrection=true
 Pause=Final
-LowHybridBound=-1 //ATTENTION, en cas d'invasion, penser a regler
-HighHybridBound=-1
+LowHybridBound=10 //ATTENTION, en cas d'invasion, penser a regler
+HighHybridBound=0
 SamplingSeed=123456
 
 %%%Writing parameters%%%
 WriteIdMatrix=true
 WriteIdentitiesProba=true
 WriteFstHe=true
-WriteGenepopFile=true //pop=demes
-WriteGenepopIntrog=true //pop=taxa
-WriteGenepopOrigin=true //pop= deme, alleles=taxa of origin
-WriteGenepopAlsoPreContact=true
+WriteGenepopFile=false //pop=demes
+WriteGenepopIntrog=false //pop=taxa
+WriteGenepopOrigin=false //pop= deme, alleles=taxa of origin
+WriteGenepopAlsoPreContact=false
 WriteIntrogProfile=true
 WriteIntrogStats=true
