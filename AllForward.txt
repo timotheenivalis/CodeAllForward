@@ -1,19 +1,19 @@
 %%%Demographic parameters%%%
-demesize=20 //en individus
+demesize=10 //en individus
 dimx=10
 dimy=8
 Xlimit=5//doit etre egal a dimX si un seul habitat
 HabitatSlideBegin=1
 HabitatSlideEnd=6// si ==0, pas de changement d'habitat
 HabitatSlideDepth=5 // si ==0, pas de changement d'habitat
-generationnumber=250
+generationnumber=5
 AllopatryLast=8000 //in generation
 
 %%%Sampling parameters%%%
 DemeSamplingRatio=1.
 IndMeanSample=10
 
-%%%Dispersion parameters%%%
+%%%Dispersion parameters; one value if same across species, or two values%%%
 dispmax=3
 mFemale=0.001
 geomFemale=0.1
