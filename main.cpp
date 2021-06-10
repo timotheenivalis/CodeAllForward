@@ -57,6 +57,7 @@ unsigned int Xlimit=5;//la transition entre les deux habitats. Habitat 0 pour X<
 unsigned int HabitatSlideBegin=0; //
 unsigned int HabitatSlideEnd=0; // si ==0, pas de changement d'habitat
 int HabitatSlideDepth=0; //si ==0, pas de chandement d'habitat
+bool Swamping=false; // if true, taxon 1 cannot enter habitat 0, meaning that there is a sustained  flow of pure genes 0 into background 1
 vector<long double> FitnessNormal;//default=1 thank to FTranslateFitness
 vector<long double> FitnessMaladaptation;//default=1 thank to FTranslateFitness
 vector<long double> FitnessHybridFemale;//default=1 thank to FTranslateFitness
@@ -1322,6 +1323,7 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
 {
     long double fitness(1.);
     long double locusfitness(0.);
+    long double SwampingMultiplier(1.);
     int genotype[2][AutLociNumber][2];
     const Cdemes *LockDeme(0);
     LockDeme=&Demes[OrigineX][OrigineY];
@@ -1336,6 +1338,8 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
                 }
         }
     int Habitat=(*LockDeme).habitat;
+
+
     for (int g(0);g<AutLociNumber;g++)
         {
             for (int i(0);i<2;i++)//boucle sur les gametes de l'individu femelle (! ce n'est plus une boucle sur le sexe comme juste au dessus !)
@@ -1362,11 +1366,26 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
             fitness*=locusfitness;
             locusfitness=0.;
         }
+    if (Swamping==true && Habitat==0)// currently swamping only affects the first locus
+        {
+             for (int i(0);i<2;i++)//boucle sur le sexe
+                {
+                    for (int j(0);j<2;j++)//boucle sur les gametes
+                        {
+                            if(genotype[i][0][j]==1)
+                                {
+                                    fitness = 0.;
+                                }
+                        }
+                }
+        }
+
     if ((*LockCouple).Spouses[0].AdaptationMt==1)// selection on mitochondria is absolute, not habitat dependant
         {
             fitness*=FitnessMt;
         }
-if ((*LockCouple).Spouses[0].AdaptationMt==-1) cout<<"am"<<(*LockCouple).Spouses[0].AdaptationMt<<endl;
+
+    //if ((*LockCouple).Spouses[0].AdaptationMt==-1) cout<<"am"<<(*LockCouple).Spouses[0].AdaptationMt<<endl;
     if (fitness>1. || fitness<0.)
         {
             cerr<<"ERROR in fitness calculation: fitness="<<fitness<<". It should be between 0 and 1"<<endl;

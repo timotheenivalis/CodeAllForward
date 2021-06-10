@@ -254,6 +254,9 @@ int read_settings_file(const string filename) {
 				stringstream strstr(buf.substr(pos+1));
 				strstr>>HabitatSlideDepth;
 				goto nextline;}
+            if(cmp_nocase(var,"Swamping")==0) {
+                evaluateBool(Swamping,buf.substr(pos+1));
+                goto nextline;}
             if(cmp_nocase(var,"FitnessNormal")==0 || cmp_nocase(var,"FitnessNormal")==0) {
                 FitnessNormal.resize(0); // discards default values
                 float value;

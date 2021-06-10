@@ -42,6 +42,7 @@ extern unsigned int Xlimit;
 extern unsigned int HabitatSlideBegin; //
 extern unsigned int HabitatSlideEnd; // si ==0, pas de changement d'habitat
 extern int HabitatSlideDepth;
+extern bool Swamping;
 extern std::vector<long double> FitnessNormal;
 extern std::vector<long double> FitnessMaladaptation;
 extern std::vector<long double> FitnessHybridFemale;
