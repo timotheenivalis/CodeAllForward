@@ -15,7 +15,7 @@ IndMeanSample=10
 
 %%%Dispersion parameters; one value if same across species, or two values%%%
 dispmax=3
-mFemale=0.001
+mFemale=0.1, 0.001
 geomFemale=0.1
 mMale=0.1
 geomMale=0.1

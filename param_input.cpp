@@ -254,10 +254,6 @@ int read_settings_file(const string filename) {
 				stringstream strstr(buf.substr(pos+1));
 				strstr>>HabitatSlideDepth;
 				goto nextline;}
-			if(cmp_nocase(var,"DispMax")==0) {
-				stringstream strstr(buf.substr(pos+1));
-				strstr>>DispMax;
-				goto nextline;}
             if(cmp_nocase(var,"FitnessNormal")==0 || cmp_nocase(var,"FitnessNormal")==0) {
                 FitnessNormal.resize(0); // discards default values
                 float value;
@@ -314,22 +310,58 @@ int read_settings_file(const string filename) {
 				stringstream strstr(buf.substr(pos+1));
 				strstr>>HybridNb;
 				goto nextline;}
-			if(cmp_nocase(var,"mFemale")==0) {
+            if(cmp_nocase(var,"DispMax")==0) {
 				stringstream strstr(buf.substr(pos+1));
-				strstr>>mFemale;
+				strstr>>DispMax;
 				goto nextline;}
-            if(cmp_nocase(var,"geomFemale")==0) {
-				stringstream strstr(buf.substr(pos+1));
-				strstr>>geomFemale;
-				goto nextline;}
-            if(cmp_nocase(var,"mMale")==0) {
-				stringstream strstr(buf.substr(pos+1));
-				strstr>>mMale;
-				goto nextline;}
-            if(cmp_nocase(var,"geomMale")==0) {
-				stringstream strstr(buf.substr(pos+1));
-				strstr>>geomMale;
-				goto nextline;}
+            if(cmp_nocase(var,"mFemale")==0 || cmp_nocase(var,"mFemale")==0) {
+                mFemale.resize(0); // discards default values
+                float value;
+                string reste=buf.substr(pos+1);
+                stringstream strstr(reste);
+                    while (!strstr.eof()) {
+                        strstr>>value;
+                         while (!strstr.eof() && !(isdigit(bidon=strstr.peek())) && bidon!='.' && bidon!='-') strstr.get();
+                        mFemale.push_back(value);
+                    }
+                strstr.clear(); // c'est le truc essentiel pour le r['e]util... snif
+                goto nextline;}
+            if(cmp_nocase(var,"geomFemale")==0 || cmp_nocase(var,"geomFemale")==0) {
+                geomFemale.resize(0); // discards default values
+                float value;
+                string reste=buf.substr(pos+1);
+                stringstream strstr(reste);
+                    while (!strstr.eof()) {
+                        strstr>>value;
+                         while (!strstr.eof() && !(isdigit(bidon=strstr.peek())) && bidon!='.' && bidon!='-') strstr.get();
+                        geomFemale.push_back(value);
+                    }
+                strstr.clear(); // c'est le truc essentiel pour le r['e]util... snif
+                goto nextline;}
+            if(cmp_nocase(var,"mMale")==0 || cmp_nocase(var,"mMale")==0) {
+                mMale.resize(0); // discards default values
+                float value;
+                string reste=buf.substr(pos+1);
+                stringstream strstr(reste);
+                    while (!strstr.eof()) {
+                        strstr>>value;
+                         while (!strstr.eof() && !(isdigit(bidon=strstr.peek())) && bidon!='.' && bidon!='-') strstr.get();
+                        mMale.push_back(value);
+                    }
+                strstr.clear(); // c'est le truc essentiel pour le r['e]util... snif
+                goto nextline;}
+            if(cmp_nocase(var,"geomMale")==0 || cmp_nocase(var,"geomMale")==0) {
+                geomMale.resize(0); // discards default values
+                float value;
+                string reste=buf.substr(pos+1);
+                stringstream strstr(reste);
+                    while (!strstr.eof()) {
+                        strstr>>value;
+                         while (!strstr.eof() && !(isdigit(bidon=strstr.peek())) && bidon!='.' && bidon!='-') strstr.get();
+                        geomMale.push_back(value);
+                    }
+                strstr.clear(); // c'est le truc essentiel pour le r['e]util... snif
+                goto nextline;}
             if(cmp_nocase(var,"HomogamyAllLoci")==0) {
                 evaluateBool(HomogamyAllLoci,buf.substr(pos+1));
                 goto nextline;}

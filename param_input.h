@@ -42,17 +42,17 @@ extern unsigned int Xlimit;
 extern unsigned int HabitatSlideBegin; //
 extern unsigned int HabitatSlideEnd; // si ==0, pas de changement d'habitat
 extern int HabitatSlideDepth;
-extern int DispMax;
 extern std::vector<long double> FitnessNormal;
 extern std::vector<long double> FitnessMaladaptation;
 extern std::vector<long double> FitnessHybridFemale;
 extern std::vector<long double> FitnessHybridMale;
 extern long double FitnessMt;
 extern int HybridNb;
-extern double mFemale;//taux de migration sur une dimension pour les femelles
-extern double geomFemale;//raison geometrique pour les femelles
-extern double mMale;//taux de migration sur une dimension pour les males
-extern double geomMale;//raison geometrique pour les males
+extern int DispMax;
+extern std::vector<double> mFemale;//taux de migration sur une dimension pour les femelles
+extern std::vector<double> geomFemale;//raison geometrique pour les femelles
+extern std::vector<double> mMale;//taux de migration sur une dimension pour les males
+extern std::vector<double> geomMale;//raison geometrique pour les males
 extern bool HomogamyAllLoci;
 extern double ChoosyFemale;
 extern double MuRate;

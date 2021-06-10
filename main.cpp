@@ -57,17 +57,17 @@ unsigned int Xlimit=5;//la transition entre les deux habitats. Habitat 0 pour X<
 unsigned int HabitatSlideBegin=0; //
 unsigned int HabitatSlideEnd=0; // si ==0, pas de changement d'habitat
 int HabitatSlideDepth=0; //si ==0, pas de chandement d'habitat
-int DispMax=1;
 vector<long double> FitnessNormal;//default=1 thank to FTranslateFitness
 vector<long double> FitnessMaladaptation;//default=1 thank to FTranslateFitness
 vector<long double> FitnessHybridFemale;//default=1 thank to FTranslateFitness
 vector<long double> FitnessHybridMale;//default=1 thank to FTranslateFitness
 long double FitnessMt=1.0;//fitness rate associated to the mitochondria
 int HybridNb=-1;//il ne se passe rien quand vaut -1. Sinon, indique le nombre d'hybridations autorisees par simul
-double mFemale=0.5;
-double geomFemale=0.5;
-double mMale=0.5;
-double geomMale=0.5;
+int DispMax=3;
+vector<double> mFemale;
+vector<double> geomFemale;
+vector<double> mMale;
+vector<double> geomMale;
 bool HomogamyAllLoci=false;
 double ChoosyFemale=0.5;//taux de femelles qui commencent la formation du couple, et choisissent donc leur partenaire selon le genotype.
 double MuRate=5e-004;
@@ -162,6 +162,7 @@ int main(int argc, char *argv[])
     FTranslateFitness(FitnessHybridFemale);
     FTranslateFitness(FitnessHybridMale);
     DemeSize=floor(DemeSize/2);
+    FTranslateMigrationParameters();
 
     vector<vector<vector<double> > > MigRates;//pour contenir les taux de migration et les corriger. La premiere dimension correspond au sexe : 0=femelle, 1=male; the second dimension corresponds to taxon (0 or 1); the third dimension correspond to axial distance
     FMigrations(MigRates);
@@ -634,40 +635,47 @@ int Ftransfer(map<long,Cnodes>& Nodes, vector<vector<Cdemes> >& Demes, int& Gene
 
 int FMigrations(vector<vector<vector<double> > >& MigRates)//corrige les taux de migration pour la 2D et normalise selon l'immigration maximale, ie au centre de la grille
  {
-    if ((mFemale>1)||(mMale>1))
-        {
-            cerr<<"Max migration argument ="<<max(mFemale,mMale)<<"; value not feasible"<<endl;
-            if (cinGetOnError==true) cin.get();
-            exit(-1);
-        }
-    if ((geomFemale>=1.0)||(geomMale>=1.0))
-        {
-            cerr << "\nSorry, geometric shape parameters must be below 1." << endl;
-            cerr << "If you want an Island model approximation, try g=0.999 for instance" << endl;
-            cerr << "I exit" << endl;
-            if (cinGetOnError==true) cin.get();
-            exit(-1);
-        }
+    for (unsigned int taxon(0); taxon<2; taxon++)
+    {
+        if ((mFemale[taxon]>1)||(mMale[taxon]>1))
+            {
+                cerr<<"Max migration argument ="<<max(mFemale[taxon],mMale[taxon])<<"; value not feasible"<<endl;
+                if (cinGetOnError==true) cin.get();
+                exit(-1);
+            }
+        if ((geomFemale[taxon]>=1.0)||(geomMale[taxon]>=1.0))
+            {
+                cerr << "\nSorry, geometric shape parameters must be below 1." << endl;
+                cerr << "If you want an Island model approximation, try g=0.999 for instance" << endl;
+                cerr << "I exit" << endl;
+                if (cinGetOnError==true) cin.get();
+                exit(-1);
+            }
+    }
     //vector<long double> TEST;
     //TEST.resize(DimX+1);
     ofstream ImigRates("ImigrationRates.txt");
     ImigRates.close();
 
-    double m(mFemale);
-    double geom(geomFemale);
+    double m(0.);
+    double geom(0.);
 
     MigRates.resize(2);//pour femelle et male
     vector<double> *SexTaxonMigRates(0);
     for (unsigned int sex(0);sex<2;sex++)
         {
         MigRates[sex].resize(2);//for the two taxa
-            if (sex==1)
-                {
-                    m=mMale;
-                    geom=geomMale;
-                }
+
             for(unsigned int taxon(0); taxon<2; taxon++)
                 {
+                if (sex==0) // female
+                    {
+                        m=mFemale[taxon];
+                        geom=geomFemale[taxon];
+                    }else{
+                        m=mMale[taxon];
+                        geom=geomMale[taxon];
+                    }
                 SexTaxonMigRates=&MigRates[sex][taxon];
                 (*SexTaxonMigRates).resize(DispMax+1);
                 long double Normalize=(m/2)*(1-geom)/(geom-pow(geom,DispMax+1));//evite une repetition du calcul
@@ -1254,6 +1262,60 @@ double FChoosy(double& choosy,Ccouples& BlockedYoungCouple,double const Acceptan
 
     return 0;
  }// end int FTranslateFitness(vector<double>& Fitness)
+
+  int FTranslateMigrationParameters()
+  {
+
+    if (mFemale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    mFemale.push_back(0.1);
+                }
+        }
+    if (mFemale.size()==1) // the two taxa have the same parameter
+        {
+            mFemale.push_back(mFemale[0]);
+        }
+
+    if (geomFemale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    geomFemale.push_back(0.1);
+                }
+        }
+    if (geomFemale.size()==1) // the two taxa have the same parameter
+        {
+            geomFemale.push_back(geomFemale[0]);
+        }
+
+    if (mMale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    mMale.push_back(0.1);
+                }
+        }
+    if (mMale.size()==1) // the two taxa have the same parameter
+        {
+            mMale.push_back(mMale[0]);
+        }
+
+    if (geomMale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    geomMale.push_back(0.1);
+                }
+        }
+    if (geomMale.size()==1) // the two taxa have the same parameter
+        {
+            geomMale.push_back(geomMale[0]);
+        }
+    return 0;
+  }// end int FTranslateMigrationParameters()
+
 
   /*******************************************************/
 long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,unsigned int const& OrigineX,unsigned int const& OrigineY,bool Sex)//calcule la fecondite moyenne d'un couple selon son genotype et l'habitat
@@ -2131,7 +2193,7 @@ int FProbaID(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<ve
                     FstHeFile<<"#DemeSize="<<DemeSize*2<<"\n#DimX="<<DimX<<"\n#DimY="<<DimY<<"\n#Xlimit="<<Xlimit<<"\n#Generation Number="<<GenerationNumber<<"\n#Allopatry last="<<AllopatryLast<<endl;// DemeSize must be multiplied by 2 because for the user it is the number of ind and for me the number of couple
                     FstHeFile<<"#HabitatSlideBegin"<<HabitatSlideBegin<<"\n#HabitatSlideEnd"<<HabitatSlideEnd<<"\n#HabitatSlideDepth"<<HabitatSlideDepth<<endl;
                     FstHeFile<<"#DemeSamplingRatio="<<DemeSamplingRatio<<"\n#IndMeanSampled="<<IndMeanSample<<endl;
-                    FstHeFile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale<<"\n#geomFemale="<<geomFemale<<"\n#mMale"<<mMale<<"\n#geomMale"<<geomMale<<"\n#EdgeEffects="<<EdgeEffects<<endl;
+                    FstHeFile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale[0]<< ", "<<mFemale[1] <<"\n#geomFemale="<<geomFemale[0]<<", "<<geomFemale[1]<<"\n#mMale="<<mMale[0]<<", "<<mMale[1]<<"\n#geomMale="<<geomMale[0]<<", "<<geomMale[1]<<"\n#EdgeEffects="<<EdgeEffects<<endl;
                     FstHeFile<<"#FitnessNormal\t"<<"FitnessMaladaptation\t"<<"FitnessHybridFemale\t"<<"FitnessHybridMale\t"<<endl;
                     for (int i(0);i<AutLociNumber;i++)
                         {
@@ -2662,7 +2724,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                     IntrogProfile<<"#DemeSize="<<DemeSize*2<<"\n#DimX="<<DimX<<"\n#DimY="<<DimY<<"\n#Xlimit="<<Xlimit<<"\n#Generation Number="<<GenerationNumber<<"\n#Allopatry last="<<AllopatryLast<<endl;// DemeSize must be multiplied by 2 because for the user it is the number of ind and for me the number of couple
                     IntrogProfile<<"#HabitatSlideBegin"<<HabitatSlideBegin<<"\n#HabitatSlideEnd"<<HabitatSlideEnd<<"\n#HabitatSlideDepth"<<HabitatSlideDepth<<endl;
                     IntrogProfile<<"#DemeSamplingRatio="<<DemeSamplingRatio<<"\n#IndMeanSampled="<<IndMeanSample<<endl;
-                    IntrogProfile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale<<"\n#geomFemale="<<geomFemale<<"\n#mMale"<<mMale<<"\n#geomMale"<<geomMale<<"\n#EdgeEffects="<<EdgeEffects<<endl;
+                    IntrogProfile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale[0]<< ", "<<mFemale[1] <<"\n#geomFemale="<<geomFemale[0]<<", "<<geomFemale[1]<<"\n#mMale="<<mMale[0]<<", "<<mMale[1]<<"\n#geomMale="<<geomMale[0]<<", "<<geomMale[1]<<"\n#EdgeEffects="<<EdgeEffects<<endl;
                     IntrogProfile<<"#FitnessNormal\t"<<"FitnessMaladaptation\t"<<"FitnessHybridFemale\t"<<"FitnessHybridMale\t"<<endl;
                     for (int i(0);i<AutLociNumber;i++)
                         {
@@ -2868,7 +2930,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                     IntrogStats<<"#DemeSize="<<DemeSize*2<<"\n#DimX="<<DimX<<"\n#DimY="<<DimY<<"\n#Xlimit="<<Xlimit<<"\n#Generation Number="<<GenerationNumber<<"\n#Allopatry last="<<AllopatryLast<<endl;// DemeSize must be multiplied by 2 because for the user it is the number of ind and for me the number of couple
                     IntrogStats<<"#HabitatSlideBegin"<<HabitatSlideBegin<<"\n#HabitatSlideEnd"<<HabitatSlideEnd<<"\n#HabitatSlideDepth"<<HabitatSlideDepth<<endl;
                     IntrogStats<<"#DemeSamplingRatio="<<DemeSamplingRatio<<"\n#IndMeanSampled="<<IndMeanSample<<endl;
-                    IntrogStats<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale<<"\n#geomFemale="<<geomFemale<<"\n#mMale"<<mMale<<"\n#geomMale"<<geomMale<<"\n#EdgeEffects="<<EdgeEffects<<endl;
+                    IntrogStats<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale[0]<< ", "<<mFemale[1] <<"\n#geomFemale="<<geomFemale[0]<<", "<<geomFemale[1]<<"\n#mMale="<<mMale[0]<<", "<<mMale[1]<<"\n#geomMale="<<geomMale[0]<<", "<<geomMale[1]<<"\n#EdgeEffects="<<EdgeEffects<<endl;
                     IntrogStats<<"#FitnessNormal\t"<<"FitnessMaladaptation\t"<<"FitnessHybridFemale\t"<<"FitnessHybridMale\t"<<endl;
                     for (int i(0);i<AutLociNumber;i++)
                         {

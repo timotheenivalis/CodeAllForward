@@ -48,6 +48,7 @@ int FInvasion(unsigned int const& years,std::vector<std::vector<Cdemes> >&NextGe
 int FFiliation(std::vector<std::vector<Cdemes> >& Demes, unsigned int const& x, unsigned int const&y, unsigned int const& years,unsigned long& Key, std::vector<std::vector<Cdemes> >& NextGeneration, std::vector<std::vector<std::vector<double> > > const& MigRates, double const AcceptanceRate[3][3],int& MovingHybridNb,std::vector<std::map<int,CAlleles> >& Alleles);
 double FChoosy(double& choosy,Ccouples& YoungCouples,double const AcceptanceRate[3][3]);
 int FTranslateFitness(std::vector<long double>& Fecundity);
+int FTranslateMigrationParameters();
 long double FFitness(std::vector<std::vector<Cdemes> >const& Demes,unsigned int const& c,unsigned int const& OrigineX, unsigned int const& OrigineY,bool sex);
 int FHangover(Ccouples& Parents,Cindividus& Spouse,int& sex,std::vector<std::map<int,CAlleles> >& Alleles);
 Ccouples FRecombination(Ccouples& Parents);
