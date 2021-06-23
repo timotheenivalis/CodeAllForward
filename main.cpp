@@ -190,7 +190,6 @@ int main(int argc, char *argv[])
                     FAllelesStates(Nodes,Alleles[g]);
                     Ftransfer(Nodes,Demes,GeneType,g);
                 }
-
 /***********************************************************************************///Pedigree
 
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
@@ -216,7 +215,7 @@ int main(int argc, char *argv[])
                                 }
                         }
                     Demes=NextGeneration;
-    //cerr<<"\r Generation "<<years<<" completed"<<flush;
+    cout<<"\r Generation "<<years<<" completed"<<flush;
                 }
 /***********************************************************************************///Sampling, calculations and output
             HabitatSlideDepth=FixedHabitatSlideDepth;//pour ecriture des fichiers
@@ -230,7 +229,7 @@ int main(int argc, char *argv[])
 
             endrun=clock();
             temps_ecoule=(double)(endrun-startrun)/CLOCKS_PER_SEC;
-            cout<<endl<<"temps du run "<<RUN<<" ="<<temps_ecoule<<endl<<endl;
+            cout<<endl<<"run "<<RUN<<" took "<<temps_ecoule<<endl<<endl;
         }//end for (RUN<RunNumber)
     end=clock();
     temps_ecoule=(double)(end-start)/CLOCKS_PER_SEC;
@@ -368,8 +367,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
         {
             Scale[j]=Ploidy*2.*DemeSize*DimX*DimY;//Ploidy=1(mt) ou 2(n);La mise a l'echelle vaut N (genes)
         }
-
-    if (DimX>1&&(Xlimit<DimX))
+    if ((DimX>1) && (Xlimit<DimX))
         {
             Scale[0]*=(double(Xlimit)/double(DimX));//separer les deux habitats s'il y a
             Scale[1]*=((double(DimX-Xlimit))/double(DimX));
@@ -383,17 +381,19 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
         {
             Present[(*it).second.habitat][0].push_back((*it).first);
         }
-    double long time;
+    double long time(0.);
+
     for (int j(0);j<2;j++)//Boucle sur les habitats
         {
             time=0.;
-            int i(1);//compteur d'evenements
+            long i(1);//compteur d'evenements
 
             while (time>=(-AllopatryLast) && (Present[j][i-1].size()>1))
                 {
                     Present[j].push_back(Present[j][i-1]);//on copie la colonne precedante
                     NodeLength=((Scale[j]*2.0/((Present[j][i].size())*(Present[j][i].size()-1.0)))*log(alea()));//longueur de branche mise a l'echelle de la taille pop, en negatif
                     time+=NodeLength;
+
                     if (time>=(-AllopatryLast))
                         {
                             int a=floor(alea()*(Present[j][i].size()));//tirage de la premiere lignee descendante
@@ -402,7 +402,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
                             Nodes[c].habitat=Nodes.find(Present[j][i][a])->second.habitat;
                             Nodes[c].Offspring.push_back(Present[j][i][a]);//rajoute la premiere lignee descendante au parent
                             Present[j][i].erase(Present[j][i].begin()+a);//efface le premier element tire pour le second tirage
-                            a=floor(alea()*(Present[j][i].size()));//tirage de la seconde lignee descendante
+                            a=floor(alea()*(Present[j][i].size()-1));//tirage de la seconde lignee descendante
                             Nodes.find(Present[j][i][a])->second.Parent=c;//met la nouvelle lignee en parent du second descendant
                             Nodes[c].Offspring.push_back(Present[j][i][a]);//rajoute la seconde lignee descendante au parent
                             Present[j][i].erase(Present[j][i].begin()+a);//efface le second element pour la generation suivante
@@ -413,6 +413,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
                     c--;//le c n'est pas reinitialise a 0 entre les 2 pop => le premier noeud de la pop 2 a pour identifiant (pop1.size())
                     i++;
                 }//end while (Present[j][i-1].size()>1)
+
         for (unsigned int k(0);k<Present[j][i-1].size();k++)
             {
                 Founders[0].push_back(Present[j][i-1][k]);//rajoute les lignees presentes juste apres la divergence a la liste de celle presentes avant la divergence
@@ -440,6 +441,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
             Nodes[c].BirthDate=time;
             c--;
         }
+
     return 0;
 }// end int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)
 
@@ -736,23 +738,15 @@ int FMigrations(vector<vector<vector<double> > >& MigRates)//corrige les taux de
                                                                     }
                                                                 if (!( X1==int(xpos) && Y1==int(ypos) ))
                                                                     {
-                                //pb<<(*SexMigRates)[fabs(xxpos)]*(*SexMigRates)[fabs(yypos)]<<"\t";
-                                //TEST[int(xpos)]+=(*SexMigRates)[fabs(xxpos)];
-                                                                         cumul+=(*SexTaxonMigRates)[fabs(xxpos)]*(*SexTaxonMigRates)[fabs(yypos)];//Si c'est ca, faire les bords reflectifs n'a pas d'interet!!!!!!
-                                                                         //cout << xpos << " " << ypos << " " << xxpos << " " << yypos << " " << MigRates[fabs(xxpos)] << " " << MigRates[fabs(yypos)] << " " <<  MigRates[fabs(xxpos)]*MigRates[fabs(yypos)]<< " ";
-                                                                         //cout << "cumul=" << cumul << endl;
+                                                                         cumul+=(*SexTaxonMigRates)[fabs(xxpos)]*(*SexTaxonMigRates)[fabs(yypos)];
                                                                     }
                                                             }//end for(yypos
                                                     }//end for(xxpos
-                                                //cout << cumul << " " << endl << endl;
                                                 if (cumul>maxcumul)
                                                     {
                                                         maxcumul=cumul;
-                                                        //cout<<"xpos="<<xpos<<" ypos="<<ypos<<endl;
                                                     }
                                             }//end for(ypos
-                                                       //cout<<endl;
-                                                       //pb<<endl;
                                     }//end for(xpos
                             }//end if(DimY>1)
                         else //1D...
@@ -1323,7 +1317,7 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
 {
     long double fitness(1.);
     long double locusfitness(0.);
-    long double SwampingMultiplier(1.);
+    //long double SwampingMultiplier(1.);
     int genotype[2][AutLociNumber][2];
     const Cdemes *LockDeme(0);
     LockDeme=&Demes[OrigineX][OrigineY];
@@ -1385,7 +1379,6 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
             fitness*=FitnessMt;
         }
 
-    //if ((*LockCouple).Spouses[0].AdaptationMt==-1) cout<<"am"<<(*LockCouple).Spouses[0].AdaptationMt<<endl;
     if (fitness>1. || fitness<0.)
         {
             cerr<<"ERROR in fitness calculation: fitness="<<fitness<<". It should be between 0 and 1"<<endl;
@@ -2340,7 +2333,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
                                                                             GPFile<<0;
                                                                         }
                                                                 }
-                                                            GPFile<<NodesGrid[x][y][i][p][a];//cout<<NodesGrid[x][y][i][p][a].Allele<<endl;
+                                                            GPFile<<NodesGrid[x][y][i][p][a];//
                                                         }
                                                     GPFile<<" ";
                                                 }
@@ -2496,7 +2489,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
                                                                                     GPFile<<0;
                                                                                 }
                                                                         }
-                                                                    GPFile<<NodesGrid[x][y][i][p][a];//cout<<NodesGrid[x][y][i][p][a].Allele<<endl;
+                                                                    GPFile<<NodesGrid[x][y][i][p][a];//
                                                                 }
                                                             GPFile<<" ";
                                                         }
@@ -2622,7 +2615,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
                                                 {
                                                     for(int a(0);a<2;a++)
                                                         {
-                                                            GPFile<<0<<Alleles[p][NodesGrid[x][y][i][p][a]].habitat+1;//cout<<NodesGrid[x][y][i][p][a].Allele<<endl;
+                                                            GPFile<<0<<Alleles[p][NodesGrid[x][y][i][p][a]].habitat+1;//
                                                         }
                                                     GPFile<<" ";
                                                 }
@@ -2825,7 +2818,6 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                                         {
                                             for(unsigned int a(0);a<NodesGrid[x][y][i][p].size();a++)
                                                 {
-//cout<<LowHybridBound<<" "<<HighHybridBound<<endl;
                                                     if ((x<LowHybridBound)&&(NodesGrid[x][y][i][AutLociNumber+3][0]==0))
                                                         {
                                                             SpTotGenes[0][p]++;
