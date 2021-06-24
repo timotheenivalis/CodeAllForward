@@ -57,17 +57,18 @@ unsigned int Xlimit=5;//la transition entre les deux habitats. Habitat 0 pour X<
 unsigned int HabitatSlideBegin=0; //
 unsigned int HabitatSlideEnd=0; // si ==0, pas de changement d'habitat
 int HabitatSlideDepth=0; //si ==0, pas de chandement d'habitat
-int DispMax=1;
+bool Swamping=false; // if true, taxon 1 cannot enter habitat 0, meaning that there is a sustained  flow of pure genes 0 into background 1
 vector<long double> FitnessNormal;//default=1 thank to FTranslateFitness
 vector<long double> FitnessMaladaptation;//default=1 thank to FTranslateFitness
 vector<long double> FitnessHybridFemale;//default=1 thank to FTranslateFitness
 vector<long double> FitnessHybridMale;//default=1 thank to FTranslateFitness
 long double FitnessMt=1.0;//fitness rate associated to the mitochondria
 int HybridNb=-1;//il ne se passe rien quand vaut -1. Sinon, indique le nombre d'hybridations autorisees par simul
-double mFemale=0.5;
-double geomFemale=0.5;
-double mMale=0.5;
-double geomMale=0.5;
+int DispMax=3;
+vector<double> mFemale;
+vector<double> geomFemale;
+vector<double> mMale;
+vector<double> geomMale;
 bool HomogamyAllLoci=false;
 double ChoosyFemale=0.5;//taux de femelles qui commencent la formation du couple, et choisissent donc leur partenaire selon le genotype.
 double MuRate=5e-004;
@@ -89,6 +90,7 @@ bool WriteGenepopOrigin=false;
 bool WriteGenepopAlsoPreContact=false;
 bool WriteIntrogProfile=false;
 bool WriteIntrogStats=false;
+int WritePeriod=-1;
 bool EdgeEffects=true;
 bool pauseGP=false;
 bool cinGetOnError=false;
@@ -155,14 +157,17 @@ int main(int argc, char *argv[])
             ofstream FstHeFile("FstHeFile.txt");
             FstHeFile.close();//Ouverture et fermeture pour effacer le fichier avant l'utilisation en fin de programme
         }
+    int WriteCounter(WritePeriod);
+
     //Parameter Modifications pre-run
     FTranslateFitness(FitnessNormal);
     FTranslateFitness(FitnessMaladaptation);
     FTranslateFitness(FitnessHybridFemale);
     FTranslateFitness(FitnessHybridMale);
     DemeSize=floor(DemeSize/2);
+    FTranslateMigrationParameters();
 
-    vector<vector<double> > MigRates;//pour contenir les taux de migration et les corriger. La premiere dimension correspond au sexe : 0=femelle, 1=male
+    vector<vector<vector<double> > > MigRates;//pour contenir les taux de migration et les corriger. La premiere dimension correspond au sexe : 0=femelle, 1=male; the second dimension corresponds to taxon (0 or 1); the third dimension correspond to axial distance
     FMigrations(MigRates);
     for (unsigned int RUN(1);RUN<=RunNumber;RUN++)
         {
@@ -187,12 +192,12 @@ int main(int argc, char *argv[])
                     FAllelesStates(Nodes,Alleles[g]);
                     Ftransfer(Nodes,Demes,GeneType,g);
                 }
-
 /***********************************************************************************///Pedigree
 
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
             //Taking a sample for Genepop before secondary contact
             vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            vector<vector<vector<vector<vector<int> > > > > NodesGrid; // Initialise the sample object for later time points writing.
             FGenepopFile(Alleles,NodesGridPre,RUN,true);
             NodesGridPre.clear();
 
@@ -213,21 +218,32 @@ int main(int argc, char *argv[])
                                 }
                         }
                     Demes=NextGeneration;
-    //cerr<<"\r Generation "<<years<<" completed"<<flush;
+
+                    if((WritePeriod>0) && (years<(GenerationNumber-1)))
+                    {
+                        WriteCounter--;
+                        if(WriteCounter==0)
+                        {
+                            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+                            FIntrogressionStats(Alleles, NodesGrid, RUN, years);
+                            WriteCounter = WritePeriod;
+                        }
+                    }
+    cout<<"\r Generation "<<years<<" completed"<<flush;
                 }
 /***********************************************************************************///Sampling, calculations and output
             HabitatSlideDepth=FixedHabitatSlideDepth;//pour ecriture des fichiers
             NextGeneration.clear();
-            vector<vector<vector<vector<vector<int> > > > > NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
             FCorrectBounds(MovingLimit);
-            FProbaID(Alleles, NodesGrid, RUN, RunQIBD);
+            FProbaID(NodesGrid, RUN, RunQIBD);
             FGenepopFile(Alleles,NodesGrid,RUN,false);
-            FIntrogressionStats(Alleles, NodesGrid, RUN);
+            FIntrogressionStats(Alleles, NodesGrid, RUN, GenerationNumber);
 
 
             endrun=clock();
             temps_ecoule=(double)(endrun-startrun)/CLOCKS_PER_SEC;
-            cout<<endl<<"temps du run "<<RUN<<" ="<<temps_ecoule<<endl<<endl;
+            cout<<endl<<"run "<<RUN<<" took "<<temps_ecoule<<endl<<endl;
         }//end for (RUN<RunNumber)
     end=clock();
     temps_ecoule=(double)(end-start)/CLOCKS_PER_SEC;
@@ -365,8 +381,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
         {
             Scale[j]=Ploidy*2.*DemeSize*DimX*DimY;//Ploidy=1(mt) ou 2(n);La mise a l'echelle vaut N (genes)
         }
-
-    if (DimX>1&&(Xlimit<DimX))
+    if ((DimX>1) && (Xlimit<DimX))
         {
             Scale[0]*=(double(Xlimit)/double(DimX));//separer les deux habitats s'il y a
             Scale[1]*=((double(DimX-Xlimit))/double(DimX));
@@ -380,17 +395,19 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
         {
             Present[(*it).second.habitat][0].push_back((*it).first);
         }
-    double long time;
+    double long time(0.);
+
     for (int j(0);j<2;j++)//Boucle sur les habitats
         {
             time=0.;
-            int i(1);//compteur d'evenements
+            long i(1);//compteur d'evenements
 
             while (time>=(-AllopatryLast) && (Present[j][i-1].size()>1))
                 {
                     Present[j].push_back(Present[j][i-1]);//on copie la colonne precedante
                     NodeLength=((Scale[j]*2.0/((Present[j][i].size())*(Present[j][i].size()-1.0)))*log(alea()));//longueur de branche mise a l'echelle de la taille pop, en negatif
                     time+=NodeLength;
+
                     if (time>=(-AllopatryLast))
                         {
                             int a=floor(alea()*(Present[j][i].size()));//tirage de la premiere lignee descendante
@@ -399,7 +416,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
                             Nodes[c].habitat=Nodes.find(Present[j][i][a])->second.habitat;
                             Nodes[c].Offspring.push_back(Present[j][i][a]);//rajoute la premiere lignee descendante au parent
                             Present[j][i].erase(Present[j][i].begin()+a);//efface le premier element tire pour le second tirage
-                            a=floor(alea()*(Present[j][i].size()));//tirage de la seconde lignee descendante
+                            a=floor(alea()*(Present[j][i].size()-1));//tirage de la seconde lignee descendante
                             Nodes.find(Present[j][i][a])->second.Parent=c;//met la nouvelle lignee en parent du second descendant
                             Nodes[c].Offspring.push_back(Present[j][i][a]);//rajoute la seconde lignee descendante au parent
                             Present[j][i].erase(Present[j][i].begin()+a);//efface le second element pour la generation suivante
@@ -410,6 +427,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
                     c--;//le c n'est pas reinitialise a 0 entre les 2 pop => le premier noeud de la pop 2 a pour identifiant (pop1.size())
                     i++;
                 }//end while (Present[j][i-1].size()>1)
+
         for (unsigned int k(0);k<Present[j][i-1].size();k++)
             {
                 Founders[0].push_back(Present[j][i-1][k]);//rajoute les lignees presentes juste apres la divergence a la liste de celle presentes avant la divergence
@@ -437,6 +455,7 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
             Nodes[c].BirthDate=time;
             c--;
         }
+
     return 0;
 }// end int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)
 
@@ -631,254 +650,257 @@ int Ftransfer(map<long,Cnodes>& Nodes, vector<vector<Cdemes> >& Demes, int& Gene
 
 /******************************************************************/
 
-int FMigrations(vector<vector<double> >& MigRates)//corrige les taux de migration pour la 2D et normalise selon l'immigration maximale, ie au centre de la grille
+int FMigrations(vector<vector<vector<double> > >& MigRates)//corrige les taux de migration pour la 2D et normalise selon l'immigration maximale, ie au centre de la grille
  {
-    if ((mFemale>1)||(mMale>1))
-        {
-            cerr<<"Max migration argument ="<<max(mFemale,mMale)<<"; value not feasible"<<endl;
-            if (cinGetOnError==true) cin.get();
-            exit(-1);
-        }
-    if ((geomFemale>=1.0)||(geomMale>=1.0))
-        {
-            cerr << "\nSorry, geometric shape parameters must be below 1." << endl;
-            cerr << "If you want an Island model approximation, try g=0.999 for instance" << endl;
-            cerr << "I exit" << endl;
-            if (cinGetOnError==true) cin.get();
-            exit(-1);
-        }
+    for (unsigned int taxon(0); taxon<2; taxon++)
+    {
+        if ((mFemale[taxon]>1)||(mMale[taxon]>1))
+            {
+                cerr<<"Max migration argument ="<<max(mFemale[taxon],mMale[taxon])<<"; value not feasible"<<endl;
+                if (cinGetOnError==true) cin.get();
+                exit(-1);
+            }
+        if ((geomFemale[taxon]>=1.0)||(geomMale[taxon]>=1.0))
+            {
+                cerr << "\nSorry, geometric shape parameters must be below 1." << endl;
+                cerr << "If you want an Island model approximation, try g=0.999 for instance" << endl;
+                cerr << "I exit" << endl;
+                if (cinGetOnError==true) cin.get();
+                exit(-1);
+            }
+    }
     //vector<long double> TEST;
     //TEST.resize(DimX+1);
     ofstream ImigRates("ImigrationRates.txt");
     ImigRates.close();
 
-    double m(mFemale);
-    double geom(geomFemale);
+    double m(0.);
+    double geom(0.);
 
     MigRates.resize(2);//pour femelle et male
-    vector<double> *SexMigRates(0);
-    for (int sex(0);sex<2;sex++)
+    vector<double> *SexTaxonMigRates(0);
+    for (unsigned int sex(0);sex<2;sex++)
         {
-            if (sex==1)
-                {
-                    m=mMale;
-                    geom=geomMale;
-                }
-            SexMigRates=&MigRates[sex];
-            (*SexMigRates).resize(DispMax+1);
-            long double Normalize=(m/2)*(1-geom)/(geom-pow(geom,DispMax+1));//evite une repetition du calcul
-            double norm(0);
-            (*SexMigRates)[0]=1.-m;
-            norm+=(*SexMigRates)[0]/2;
-            for (int a(1);a<=DispMax;a++)
-                {
-                    (*SexMigRates)[a]=pow(geom,a)*Normalize;
-                    norm+=(*SexMigRates)[a];
-                }
-            norm*=2.;//must egal 1
+        MigRates[sex].resize(2);//for the two taxa
 
-            if (MigRatesCorrection==true) // si on le souhaite, on corrige ces taux de migration pour la 2D, et le taux de migration maximal prend la valeur d'entree m
+            for(unsigned int taxon(0); taxon<2; taxon++)
                 {
-                    long double maxcumul(0.);
-                    long double tmp;
-                    for (int i=0;i<=DispMax;i++)
-                        {
-                            (*SexMigRates)[i]/=norm;//INUTILE!!!????
-                        }
-                    double cumul;
-                    if(DimY>1)
-                        {
-                            for(unsigned int xpos=0;xpos<DimX;xpos++)
-                                {
-                                    for(unsigned int ypos=0;ypos<DimY;ypos++)
-                                        {
-                                            cumul=0;
-                                            for(int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
-                                                {
-                                                    for(int yypos(-DispMax);yypos<=DispMax;yypos++)
-                                                        {
-                                                            int X1=int(xpos)+xxpos;//il faut definir un int autre que celui de la boucle car on prend parfois l'oppose, la boucle est alors fausse et potentiellement infinie
-                                                            int Y1=int(ypos)+yypos;
-                                                            if(EdgeEffects==true)//Reflecting edges
-                                                                {
-                                                                    if (X1<0)//bords reflectifs
-                                                                        {X1=-(int(xpos)+xxpos);}
-                                                                    if (X1>=int(DimX))
-                                                                        {X1=2*(int(DimX)-1)-X1;}
-                                                                    if (Y1<0)
-                                                                        {Y1=-(int(ypos)+yypos);}
-                                                                    if (Y1>=int(DimY))
-                                                                        {Y1=2*(int(DimY)-1)-Y1;}
-                                                                }
-                                                            else//Tore
-                                                                {
-                                                                    if (X1<0)
-                                                                        {X1=int(DimX)+(int(xpos)+xxpos);}
-                                                                    if (X1>=int(DimX))
-                                                                        {X1=int(xpos)+xxpos-int(DimX);}
-                                                                    if (Y1<0)
-                                                                        {Y1=int(DimY)+(int(ypos)+yypos);}
-                                                                    if (Y1>=int(DimY))
-                                                                        {Y1=int(ypos)+yypos-int(DimY);}
-                                                                }
-                                                            if (!( X1==int(xpos) && Y1==int(ypos) ))
-                                                                {
-                            //pb<<(*SexMigRates)[fabs(xxpos)]*(*SexMigRates)[fabs(yypos)]<<"\t";
-                            //TEST[int(xpos)]+=(*SexMigRates)[fabs(xxpos)];
-                                                                     cumul+=(*SexMigRates)[fabs(xxpos)]*(*SexMigRates)[fabs(yypos)];//Si c'est ca, faire les bords reflectifs n'a pas d'interet!!!!!!
-                                                                     //cout << xpos << " " << ypos << " " << xxpos << " " << yypos << " " << MigRates[fabs(xxpos)] << " " << MigRates[fabs(yypos)] << " " <<  MigRates[fabs(xxpos)]*MigRates[fabs(yypos)]<< " ";
-                                                                     //cout << "cumul=" << cumul << endl;
-                                                                }
-                                                        }//end for(yypos
-                                                }//end for(xxpos
-                                            //cout << cumul << " " << endl << endl;
-                                            if (cumul>maxcumul)
-                                                {
-                                                    maxcumul=cumul;
-                                                    //cout<<"xpos="<<xpos<<" ypos="<<ypos<<endl;
-                                                }
-                                        }//end for(ypos
-                                                   //cout<<endl;
-                                                   //pb<<endl;
-                                }//end for(xpos
-                        }//end if(DimY>1)
-                    else //1D...
-                        {
-                            for(unsigned int xpos=0;xpos<DimX;xpos++)
-                                {
-                                    cumul=0;
-                                    for(int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
-                                        {
-                                            int X1=int(xpos)+xxpos;
-                                            if(EdgeEffects==true)//Reflecting edges
-                                                {
-                                                    if(X1<0)
-                                                        {X1=-(int(xpos)+xxpos);}
-                                                    if(X1>=int(DimX))
-                                                        {X1=2*(int(DimX)-1)-X1;}
-                                                }
-                                            else//Circle...
-                                                {
-                                                    if (X1<0)
-                                                        {X1=int(DimX)+(int(xpos)+xxpos);}
-                                                    if (X1>=int(DimX))
-                                                        {X1=int(xpos)+xxpos-int(DimX);}
-                                                }
-                                            if(!(X1==int(xpos)))
-                                                {
-                                                    cumul+=(*SexMigRates)[fabs(xxpos)];
-                                                }
-                                        }//end for(xpos)
-                                    if(cumul>maxcumul)
-                                        {
-                                            maxcumul=cumul;
-                                        }
-                                }
-                        }
-                    tmp=m/maxcumul;
-                    if(DimY>1)//2D
-                        {
-                            tmp=sqrt(tmp);
-                        }
-                    vector<vector<long double> > MigCheck;
-                    MigCheck.resize(DimX);
-                    for (unsigned int i(0);i<MigCheck.size();i++)
-                        {
-                            MigCheck[i].resize(DimY);
-                        }
-                    for(int i(0);i<=DispMax;i++)
-                        {
-                            (*SexMigRates)[i]*=tmp;
-                        }
-                        //check
-                    double migra0=(*SexMigRates)[0];//constant, should be the final non-immigration rate
-                    if(DimY>1)//2D
-                        {
+                if (sex==0) // female
+                    {
+                        m=mFemale[taxon];
+                        geom=geomFemale[taxon];
+                    }else{
+                        m=mMale[taxon];
+                        geom=geomMale[taxon];
+                    }
+                SexTaxonMigRates=&MigRates[sex][taxon];
+                (*SexTaxonMigRates).resize(DispMax+1);
+                long double Normalize=(m/2)*(1-geom)/(geom-pow(geom,DispMax+1));//evite une repetition du calcul
+                double norm(0);
+                (*SexTaxonMigRates)[0]=1.-m;
+                norm+=(*SexTaxonMigRates)[0]/2;
+                for (int a(1);a<=DispMax;a++)
+                    {
+                        (*SexTaxonMigRates)[a]=pow(geom,a)*Normalize;
+                        norm+=(*SexTaxonMigRates)[a];
+                    }
+                norm*=2.;//must egal 1
+
+                if (MigRatesCorrection==true) // si on le souhaite, on corrige ces taux de migration pour la 2D, et le taux de migration maximal prend la valeur d'entree m
+                    {
+                        long double maxcumul(0.);
+                        long double tmp;
+                        for (int i=0;i<=DispMax;i++)
+                            {
+                                (*SexTaxonMigRates)[i]/=norm;//INUTILE!!!????
+                            }
+                        double cumul;
+                        if(DimY>1)
+                            {
+                                for(unsigned int xpos=0;xpos<DimX;xpos++)
+                                    {
+                                        for(unsigned int ypos=0;ypos<DimY;ypos++)
+                                            {
+                                                cumul=0;
+                                                for(int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
+                                                    {
+                                                        for(int yypos(-DispMax);yypos<=DispMax;yypos++)
+                                                            {
+                                                                int X1=int(xpos)+xxpos;//il faut definir un int autre que celui de la boucle car on prend parfois l'oppose, la boucle est alors fausse et potentiellement infinie
+                                                                int Y1=int(ypos)+yypos;
+                                                                if(EdgeEffects==true)//Reflecting edges
+                                                                    {
+                                                                        if (X1<0)//bords reflectifs
+                                                                            {X1=-(int(xpos)+xxpos);}
+                                                                        if (X1>=int(DimX))
+                                                                            {X1=2*(int(DimX)-1)-X1;}
+                                                                        if (Y1<0)
+                                                                            {Y1=-(int(ypos)+yypos);}
+                                                                        if (Y1>=int(DimY))
+                                                                            {Y1=2*(int(DimY)-1)-Y1;}
+                                                                    }
+                                                                else//Tore
+                                                                    {
+                                                                        if (X1<0)
+                                                                            {X1=int(DimX)+(int(xpos)+xxpos);}
+                                                                        if (X1>=int(DimX))
+                                                                            {X1=int(xpos)+xxpos-int(DimX);}
+                                                                        if (Y1<0)
+                                                                            {Y1=int(DimY)+(int(ypos)+yypos);}
+                                                                        if (Y1>=int(DimY))
+                                                                            {Y1=int(ypos)+yypos-int(DimY);}
+                                                                    }
+                                                                if (!( X1==int(xpos) && Y1==int(ypos) ))
+                                                                    {
+                                                                         cumul+=(*SexTaxonMigRates)[fabs(xxpos)]*(*SexTaxonMigRates)[fabs(yypos)];
+                                                                    }
+                                                            }//end for(yypos
+                                                    }//end for(xxpos
+                                                if (cumul>maxcumul)
+                                                    {
+                                                        maxcumul=cumul;
+                                                    }
+                                            }//end for(ypos
+                                    }//end for(xpos
+                            }//end if(DimY>1)
+                        else //1D...
+                            {
+                                for(unsigned int xpos=0;xpos<DimX;xpos++)
+                                    {
+                                        cumul=0;
+                                        for(int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
+                                            {
+                                                int X1=int(xpos)+xxpos;
+                                                if(EdgeEffects==true)//Reflecting edges
+                                                    {
+                                                        if(X1<0)
+                                                            {X1=-(int(xpos)+xxpos);}
+                                                        if(X1>=int(DimX))
+                                                            {X1=2*(int(DimX)-1)-X1;}
+                                                    }
+                                                else//Circle...
+                                                    {
+                                                        if (X1<0)
+                                                            {X1=int(DimX)+(int(xpos)+xxpos);}
+                                                        if (X1>=int(DimX))
+                                                            {X1=int(xpos)+xxpos-int(DimX);}
+                                                    }
+                                                if(!(X1==int(xpos)))
+                                                    {
+                                                        cumul+=(*SexTaxonMigRates)[fabs(xxpos)];
+                                                    }
+                                            }//end for(xpos)
+                                        if(cumul>maxcumul)
+                                            {
+                                                maxcumul=cumul;
+                                            }
+                                    }
+                            }
+                        tmp=m/maxcumul;
+                        if(DimY>1)//2D
+                            {
+                                tmp=sqrt(tmp);
+                            }
+                        vector<vector<long double> > MigCheck;
+                        MigCheck.resize(DimX);
+                        for (unsigned int i(0);i<MigCheck.size();i++)
+                            {
+                                MigCheck[i].resize(DimY);
+                            }
+                        for(int i(0);i<=DispMax;i++)
+                            {
+                                (*SexTaxonMigRates)[i]*=tmp;
+                            }
+                            //check
+                        double migra0=(*SexTaxonMigRates)[0];//constant, should be the final non-immigration rate
+                        if(DimY>1)//2D
+                            {
+                                    for(unsigned int xpos(0);xpos<DimX;xpos++)
+                                    {
+                                        for (unsigned int ypos(0);ypos<DimY;ypos++)
+                                            {
+                                                cumul=0.;
+                                                for (int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
+                                                    {
+                                                        for(int yypos(-DispMax);yypos<=DispMax;yypos++)
+                                                            {
+                                                                int X1=int(xpos)+xxpos;//il faut definir un int autre que celui de la boucle car on prend parfois l'oppose, la boucle est alors fausse et potentiellement infinie
+                                                                int Y1=int(ypos)+yypos;
+                                                                if(EdgeEffects==true)//Reflecting edges
+                                                                    {
+                                                                        if (X1<0)//bords reflectifs
+                                                                            {X1=-(int(xpos)+xxpos);}
+                                                                        if (X1>=int(DimX))
+                                                                            {X1=2*(int(DimX)-1)-X1;}
+                                                                        if (Y1<0)
+                                                                            {Y1=-(int(ypos)+yypos);}
+                                                                        if (Y1>=int(DimY))
+                                                                            {Y1=2*(int(DimY)-1)-Y1;}
+                                                                    }
+                                                                else//Tore...
+                                                                    {
+                                                                        if (X1<0)
+                                                                            {X1=int(DimX)+(int(xpos)+xxpos);}
+                                                                        if (X1>=int(DimX))
+                                                                            {X1=int(xpos)+xxpos-int(DimX);}
+                                                                        if (Y1<0)
+                                                                            {Y1=int(DimY)+(int(ypos)+yypos);}
+                                                                        if (Y1>=int(DimY))
+                                                                            {Y1=int(ypos)+yypos-int(DimY);}
+                                                                    }
+                                                                if ((X1!=int(xpos))||(Y1!=int(ypos)))
+                                                                    {
+                                                                        cumul+=(*SexTaxonMigRates)[fabs(xxpos)]*(*SexTaxonMigRates)[fabs(yypos)];
+                                                                    }
+
+                                                            }//end for(yypos
+                                                    }//end for(xxpos
+                                                MigCheck[xpos][ypos]=migra0/(cumul+migra0);
+                                            }
+                                    }
+                            }//end 2D
+                        else//1D
+                            {
+                                int ypos=0;
                                 for(unsigned int xpos(0);xpos<DimX;xpos++)
-                                {
-                                    for (unsigned int ypos(0);ypos<DimY;ypos++)
-                                        {
-                                            cumul=0.;
-                                            for (int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
-                                                {
-                                                    for(int yypos(-DispMax);yypos<=DispMax;yypos++)
-                                                        {
-                                                            int X1=int(xpos)+xxpos;//il faut definir un int autre que celui de la boucle car on prend parfois l'oppose, la boucle est alors fausse et potentiellement infinie
-                                                            int Y1=int(ypos)+yypos;
-                                                            if(EdgeEffects==true)//Reflecting edges
-                                                                {
-                                                                    if (X1<0)//bords reflectifs
-                                                                        {X1=-(int(xpos)+xxpos);}
-                                                                    if (X1>=int(DimX))
-                                                                        {X1=2*(int(DimX)-1)-X1;}
-                                                                    if (Y1<0)
-                                                                        {Y1=-(int(ypos)+yypos);}
-                                                                    if (Y1>=int(DimY))
-                                                                        {Y1=2*(int(DimY)-1)-Y1;}
-                                                                }
-                                                            else//Tore...
-                                                                {
-                                                                    if (X1<0)
-                                                                        {X1=int(DimX)+(int(xpos)+xxpos);}
-                                                                    if (X1>=int(DimX))
-                                                                        {X1=int(xpos)+xxpos-int(DimX);}
-                                                                    if (Y1<0)
-                                                                        {Y1=int(DimY)+(int(ypos)+yypos);}
-                                                                    if (Y1>=int(DimY))
-                                                                        {Y1=int(ypos)+yypos-int(DimY);}
-                                                                }
-                                                            if ((X1!=int(xpos))||(Y1!=int(ypos)))
-                                                                {
-                                                                    cumul+=(*SexMigRates)[fabs(xxpos)]*(*SexMigRates)[fabs(yypos)];
-                                                                }
+                                    {
+                                        cumul=0;
+                                        for(int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
+                                            {
+                                                int X1=int(xpos)+xxpos;
+                                                if(EdgeEffects==true)//Reflecting edges
+                                                    {
+                                                        if(X1<0)
+                                                            {X1=-(int(xpos)+xxpos);}
+                                                        if(X1>=int(DimX))
+                                                            {X1=2*(DimX-1)-X1;}
+                                                    }
+                                                else//Circle...
+                                                    {
+                                                        if (X1<0)
+                                                            {X1=int(DimX)+(int(xpos)+xxpos);}
+                                                        if (X1>=int(DimX))
+                                                            {X1=int(xpos)+xxpos-int(DimX);}
+                                                    }
+                                                if(!(X1==int(xpos)))
+                                                    {
+                                                        cumul+=(*SexTaxonMigRates)[fabs(xxpos)];
+                                                    }
+                                            }
+                                        MigCheck[xpos][ypos]=migra0/(cumul+migra0);
+                                    }//end for(xpos)
+                            }//end 1D
+                        ofstream ImigRates("ImigrationRates.txt", ios::app);
+                        ImigRates<<"Sex="<<sex<<endl<<"x\ty\tImigrationRate"<<endl;
+                        for(unsigned int x(0);x<DimX;x++)
+                        for(unsigned int y(0);y<DimY;y++)
+                            {
+                                ImigRates<<x<<"\t"<<y<<"\t"<<MigCheck[x][y]<<endl;
 
-                                                        }//end for(yypos
-                                                }//end for(xxpos
-                                            MigCheck[xpos][ypos]=migra0/(cumul+migra0);
-                                        }
-                                }
-                        }//end 2D
-                    else//1D
-                        {
-                            int ypos=0;
-                            for(unsigned int xpos(0);xpos<DimX;xpos++)
-                                {
-                                    cumul=0;
-                                    for(int xxpos(-DispMax);xxpos<=DispMax;xxpos++)
-                                        {
-                                            int X1=int(xpos)+xxpos;
-                                            if(EdgeEffects==true)//Reflecting edges
-                                                {
-                                                    if(X1<0)
-                                                        {X1=-(int(xpos)+xxpos);}
-                                                    if(X1>=int(DimX))
-                                                        {X1=2*(DimX-1)-X1;}
-                                                }
-                                            else//Circle...
-                                                {
-                                                    if (X1<0)
-                                                        {X1=int(DimX)+(int(xpos)+xxpos);}
-                                                    if (X1>=int(DimX))
-                                                        {X1=int(xpos)+xxpos-int(DimX);}
-                                                }
-                                            if(!(X1==int(xpos)))
-                                                {
-                                                    cumul+=(*SexMigRates)[fabs(xxpos)];
-                                                }
-                                        }
-                                    MigCheck[xpos][ypos]=migra0/(cumul+migra0);
-                                }//end for(xpos)
-                        }//end 1D
-                    ofstream ImigRates("ImigrationRates.txt", ios::app);
-                    ImigRates<<"Sex="<<sex<<endl<<"x\ty\tImigrationRate"<<endl;
-                    for(unsigned int x(0);x<DimX;x++)
-                    for(unsigned int y(0);y<DimY;y++)
-                        {
-                            ImigRates<<x<<"\t"<<y<<"\t"<<MigCheck[x][y]<<endl;
-
-                        }
-                }//end if (MigRatesCorrection==true)
-        }//end for (int sex(0);sex<2;sex++)
+                            }
+                    }//end if (MigRatesCorrection==true)
+                }//end for (unsigned int taxon(0);taxon<2;taxon++)
+        }//end for (unsigned int sex(0);sex<2;sex++)
      return 0;
  }//end FMigration()
 
@@ -952,23 +974,26 @@ int FInvasion(unsigned int const& years,vector<vector<Cdemes> >& NextGeneration,
  }//end FInvasion()
  /*******************************************************/
 
-int FFiliation(vector<vector<Cdemes> >& Demes, unsigned int const& x, unsigned int const& y, unsigned int const& years, unsigned long& Key, vector<vector<Cdemes> >& NextGeneration, vector<vector<double> > const& MigRates, double const AcceptanceRate[3][3],int& MovingHybridNb, vector<map<int,CAlleles> >& Alleles)
+int FFiliation(vector<vector<Cdemes> >& Demes, unsigned int const& x, unsigned int const& y, unsigned int const& years, unsigned long& Key, vector<vector<Cdemes> >& NextGeneration, vector<vector<vector<double> > > const& MigRates, double const AcceptanceRate[3][3],int& MovingHybridNb, vector<map<int,CAlleles> >& Alleles)
 {
     //Conteneurs pour les femelles NB:On ne peut pas faire un vector size(2) que l'on push_back, il se remplit n'importe comment
     vector<long double> AddSumF;
     long double SumF(0);
-    long double mxF(0);
-    long double myF(0);
+    vector<long double> mxF(2);
+    vector<long double> myF(2);
     //Conteneurs pour les males
     vector<long double> AddSumM;
     long double SumM(0);
-    long double mxM(0);
-    long double myM(0);
+    vector<long double> mxM(2);
+    vector<long double> myM(2);
     //Conteneurs pour les deux
     vector<long double> AddSum;
     vector< int> Addc;
     vector<signed long> Addx;
     vector<signed long> Addy;
+
+    const Cdemes *LockDeme(0); // CHECK IF IT IS A GOOD IDEA TO DEFINE HERE
+    const Ccouples *LockCouple(0); // CHECK IF IT IS A GOOD IDEA TO DEFINE HERE
 
    /* vector<vector<long double> > MigCheck;
     MigCheck.resize(DimX);
@@ -1010,6 +1035,7 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                         {
                             int X1=int(x)+X;//il faut definir un int autre que celui de la boucle car on prend parfois l'oppose, la boucle est alors fausse et potentiellement infinie
                             int Y1=int(y)+Y;
+
                             if (EdgeEffects==true)//Bords reflectifs
                                 {
                                     if (X1<0)//bords reflectifs
@@ -1032,16 +1058,30 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                                     if (Y1>=int(DimY))
                                         {Y1=int(y)+Y-int(DimY);}
                                 }
-                            mxF=MigRates[0][fabs(X)]; mxM=MigRates[1][fabs(X)];//X et pas X1, c'est le mouvement total dont on veut le taux, pas le resultat du mouvement
-                            myF=MigRates[0][fabs(Y)]; myM=MigRates[1][fabs(Y)];
+
+
+                            for (unsigned int taxon(0); taxon<2; taxon++)
+                                {
+                                    mxF[taxon]=MigRates[0][taxon][fabs(X)]; mxM[taxon]=MigRates[1][taxon][fabs(X)];//X et pas X1, c'est le mouvement total dont on veut le taux, pas le resultat du mouvement
+                                    myF[taxon]=MigRates[0][taxon][fabs(Y)]; myM[taxon]=MigRates[1][taxon][fabs(Y)];
+                                }
+
+
+
+                            LockDeme=&Demes[X1][Y1];
 
                             for (unsigned int c(0);c<DemeSize;c++)
                                 {
+
+                                LockCouple=&(*LockDeme).Couples[c];
+
                                         double fitness=FFitness(Demes,c,X1,Y1,false);//false for female
-                                        SumF+=fitness*mxF*myF;
+                                        SumF+=fitness*(mxF[(*LockCouple).Spouses[0].AdaptationLocus[0][0]]+ mxF[(*LockCouple).Spouses[0].AdaptationLocus[0][1]])*(myF[(*LockCouple).Spouses[0].AdaptationLocus[0][0]]+ myF[(*LockCouple).Spouses[0].AdaptationLocus[0][1]])/4;
                                         fitness=FFitness(Demes,c,X1,Y1,true);//true for male
-                                        SumM+=fitness*mxM*myM;
-                                        AddSumF.push_back(SumF); AddSumM.push_back(SumM);
+                                        SumM+=fitness*(mxM[(*LockCouple).Spouses[1].AdaptationLocus[0][0]]+ mxM[(*LockCouple).Spouses[1].AdaptationLocus[0][1]])*(myM[(*LockCouple).Spouses[1].AdaptationLocus[0][0]]+ myM[(*LockCouple).Spouses[1].AdaptationLocus[0][1]])/4;
+
+                                        AddSumF.push_back(SumF);
+                                        AddSumM.push_back(SumM);
                                         Addc.push_back(c);
                                         Addx.push_back(X1);
                                         Addy.push_back(Y1);
@@ -1068,17 +1108,25 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                             if (X1>=int(DimX))
                                 {X1=int(x)+X-int(DimX);}
                         }
-                            mxF=MigRates[0][fabs(X)]; mxM=MigRates[1][fabs(X)];//X et pas X1, c'est le mouvement total dont on veut le taux, pas le resultat du mouvement
+
+                    for (unsigned int taxon(0); taxon<1; taxon++)
+                        {
+                            mxF[taxon]=MigRates[0][taxon][fabs(X)]; mxM[taxon]=MigRates[1][taxon][fabs(X)];//X et pas X1, c'est le mouvement total dont on veut le taux, pas le resultat du mouvement
+                        }
+
+                    LockDeme=&Demes[X1][0];
+
                     for (unsigned int c(0);c<DemeSize;c++)
                         {
-                                double fitness=FFitness(Demes,c,X1,0,false);//false for female
-                                SumF+=fitness*mxF;
-                                fitness=FFitness(Demes,c,X1,0,true);//true for male
-                                SumM+=fitness*mxM;
-                                AddSumF.push_back(SumF); AddSumM.push_back(SumM);
-                                Addc.push_back(c);
-                                Addx.push_back(X1);
-                                Addy.push_back(0);
+                            LockCouple=&(*LockDeme).Couples[c];
+                            double fitness=FFitness(Demes,c,X1,0,false);//false for female
+                            SumF+=fitness*(mxF[(*LockCouple).Spouses[0].AdaptationLocus[0][0]]+ mxF[(*LockCouple).Spouses[0].AdaptationLocus[0][1]])/2;
+                            fitness=FFitness(Demes,c,X1,0,true);//true for male
+                            SumM+=fitness*(mxM[(*LockCouple).Spouses[1].AdaptationLocus[0][0]]+ mxM[(*LockCouple).Spouses[1].AdaptationLocus[0][1]])/2;
+                            AddSumF.push_back(SumF); AddSumM.push_back(SumM);
+                            Addc.push_back(c);
+                            Addx.push_back(X1);
+                            Addy.push_back(0);
                         }
                 }
         }//end 1D
@@ -1224,11 +1272,66 @@ double FChoosy(double& choosy,Ccouples& BlockedYoungCouple,double const Acceptan
     return 0;
  }// end int FTranslateFitness(vector<double>& Fitness)
 
+  int FTranslateMigrationParameters()
+  {
+
+    if (mFemale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    mFemale.push_back(0.1);
+                }
+        }
+    if (mFemale.size()==1) // the two taxa have the same parameter
+        {
+            mFemale.push_back(mFemale[0]);
+        }
+
+    if (geomFemale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    geomFemale.push_back(0.1);
+                }
+        }
+    if (geomFemale.size()==1) // the two taxa have the same parameter
+        {
+            geomFemale.push_back(geomFemale[0]);
+        }
+
+    if (mMale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    mMale.push_back(0.1);
+                }
+        }
+    if (mMale.size()==1) // the two taxa have the same parameter
+        {
+            mMale.push_back(mMale[0]);
+        }
+
+    if (geomMale.size()==0) // no input, default value to both taxa
+        {
+            for (int i(0);i<2;i++)
+                {
+                    geomMale.push_back(0.1);
+                }
+        }
+    if (geomMale.size()==1) // the two taxa have the same parameter
+        {
+            geomMale.push_back(geomMale[0]);
+        }
+    return 0;
+  }// end int FTranslateMigrationParameters()
+
+
   /*******************************************************/
 long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,unsigned int const& OrigineX,unsigned int const& OrigineY,bool Sex)//calcule la fecondite moyenne d'un couple selon son genotype et l'habitat
 {
     long double fitness(1.);
     long double locusfitness(0.);
+    //long double SwampingMultiplier(1.);
     int genotype[2][AutLociNumber][2];
     const Cdemes *LockDeme(0);
     LockDeme=&Demes[OrigineX][OrigineY];
@@ -1243,6 +1346,8 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
                 }
         }
     int Habitat=(*LockDeme).habitat;
+
+
     for (int g(0);g<AutLociNumber;g++)
         {
             for (int i(0);i<2;i++)//boucle sur les gametes de l'individu femelle (! ce n'est plus une boucle sur le sexe comme juste au dessus !)
@@ -1269,11 +1374,25 @@ long double FFitness(vector<vector<Cdemes> >const& Demes,unsigned int const& c,u
             fitness*=locusfitness;
             locusfitness=0.;
         }
+    if (Swamping==true && Habitat==0)// currently swamping only affects the first locus
+        {
+             for (int i(0);i<2;i++)//boucle sur le sexe
+                {
+                    for (int j(0);j<2;j++)//boucle sur les gametes
+                        {
+                            if(genotype[i][0][j]==1)
+                                {
+                                    fitness = 0.;
+                                }
+                        }
+                }
+        }
+
     if ((*LockCouple).Spouses[0].AdaptationMt==1)// selection on mitochondria is absolute, not habitat dependant
         {
             fitness*=FitnessMt;
         }
-if ((*LockCouple).Spouses[0].AdaptationMt==-1) cout<<"am"<<(*LockCouple).Spouses[0].AdaptationMt<<endl;
+
     if (fitness>1. || fitness<0.)
         {
             cerr<<"ERROR in fitness calculation: fitness="<<fitness<<". It should be between 0 and 1"<<endl;
@@ -1595,7 +1714,7 @@ int FCorrectBounds(int& MovingLimit)//corrige les bornes de la zone consideree h
 
 /******************************************************************/
 
-int FProbaID(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, vector<vector<double> >& RunQIBD )
+int FProbaID(vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, vector<vector<double> >& RunQIBD )
 {
     int step;//contera les pas separant des individus
 
@@ -2100,7 +2219,7 @@ int FProbaID(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<ve
                     FstHeFile<<"#DemeSize="<<DemeSize*2<<"\n#DimX="<<DimX<<"\n#DimY="<<DimY<<"\n#Xlimit="<<Xlimit<<"\n#Generation Number="<<GenerationNumber<<"\n#Allopatry last="<<AllopatryLast<<endl;// DemeSize must be multiplied by 2 because for the user it is the number of ind and for me the number of couple
                     FstHeFile<<"#HabitatSlideBegin"<<HabitatSlideBegin<<"\n#HabitatSlideEnd"<<HabitatSlideEnd<<"\n#HabitatSlideDepth"<<HabitatSlideDepth<<endl;
                     FstHeFile<<"#DemeSamplingRatio="<<DemeSamplingRatio<<"\n#IndMeanSampled="<<IndMeanSample<<endl;
-                    FstHeFile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale<<"\n#geomFemale="<<geomFemale<<"\n#mMale"<<mMale<<"\n#geomMale"<<geomMale<<"\n#EdgeEffects="<<EdgeEffects<<endl;
+                    FstHeFile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale[0]<< ", "<<mFemale[1] <<"\n#geomFemale="<<geomFemale[0]<<", "<<geomFemale[1]<<"\n#mMale="<<mMale[0]<<", "<<mMale[1]<<"\n#geomMale="<<geomMale[0]<<", "<<geomMale[1]<<"\n#EdgeEffects="<<EdgeEffects<<endl;
                     FstHeFile<<"#FitnessNormal\t"<<"FitnessMaladaptation\t"<<"FitnessHybridFemale\t"<<"FitnessHybridMale\t"<<endl;
                     for (int i(0);i<AutLociNumber;i++)
                         {
@@ -2228,7 +2347,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
                                                                             GPFile<<0;
                                                                         }
                                                                 }
-                                                            GPFile<<NodesGrid[x][y][i][p][a];//cout<<NodesGrid[x][y][i][p][a].Allele<<endl;
+                                                            GPFile<<NodesGrid[x][y][i][p][a];//
                                                         }
                                                     GPFile<<" ";
                                                 }
@@ -2384,7 +2503,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
                                                                                     GPFile<<0;
                                                                                 }
                                                                         }
-                                                                    GPFile<<NodesGrid[x][y][i][p][a];//cout<<NodesGrid[x][y][i][p][a].Allele<<endl;
+                                                                    GPFile<<NodesGrid[x][y][i][p][a];//
                                                                 }
                                                             GPFile<<" ";
                                                         }
@@ -2510,7 +2629,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
                                                 {
                                                     for(int a(0);a<2;a++)
                                                         {
-                                                            GPFile<<0<<Alleles[p][NodesGrid[x][y][i][p][a]].habitat+1;//cout<<NodesGrid[x][y][i][p][a].Allele<<endl;
+                                                            GPFile<<0<<Alleles[p][NodesGrid[x][y][i][p][a]].habitat+1;//
                                                         }
                                                     GPFile<<" ";
                                                 }
@@ -2546,7 +2665,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
 
 
 /******************************************************************/
-int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN)
+int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years)
 {
     if (WriteIntrogProfile==true)
         {
@@ -2624,14 +2743,14 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
             IntroLocus.resize(2*AutLociNumber+3);
             ofstream IntrogProfile("IntrogProfile.txt", ios::app);
             IntrogProfile<<setprecision(3);
-            if (RUN==1)//header une seule fois
+            if (RUN==1 && (years==WritePeriod || WritePeriod<0))//header une seule fois
                 {
                     IntrogProfile<<"#AllForward output file"<<endl;
                     IntrogProfile<<"#Simulation Parameters :"<<endl;
                     IntrogProfile<<"#DemeSize="<<DemeSize*2<<"\n#DimX="<<DimX<<"\n#DimY="<<DimY<<"\n#Xlimit="<<Xlimit<<"\n#Generation Number="<<GenerationNumber<<"\n#Allopatry last="<<AllopatryLast<<endl;// DemeSize must be multiplied by 2 because for the user it is the number of ind and for me the number of couple
                     IntrogProfile<<"#HabitatSlideBegin"<<HabitatSlideBegin<<"\n#HabitatSlideEnd"<<HabitatSlideEnd<<"\n#HabitatSlideDepth"<<HabitatSlideDepth<<endl;
                     IntrogProfile<<"#DemeSamplingRatio="<<DemeSamplingRatio<<"\n#IndMeanSampled="<<IndMeanSample<<endl;
-                    IntrogProfile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale<<"\n#geomFemale="<<geomFemale<<"\n#mMale"<<mMale<<"\n#geomMale"<<geomMale<<"\n#EdgeEffects="<<EdgeEffects<<endl;
+                    IntrogProfile<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale[0]<< ", "<<mFemale[1] <<"\n#geomFemale="<<geomFemale[0]<<", "<<geomFemale[1]<<"\n#mMale="<<mMale[0]<<", "<<mMale[1]<<"\n#geomMale="<<geomMale[0]<<", "<<geomMale[1]<<"\n#EdgeEffects="<<EdgeEffects<<endl;
                     IntrogProfile<<"#FitnessNormal\t"<<"FitnessMaladaptation\t"<<"FitnessHybridFemale\t"<<"FitnessHybridMale\t"<<endl;
                     for (int i(0);i<AutLociNumber;i++)
                         {
@@ -2649,7 +2768,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                     IntrogProfile<<"#MuRate="<<MuRate<<endl;
                     IntrogProfile<<"#InterRecombiRate="<<InterRecombiRate<<endl<<"#IntraRecombiRate="<<IntraRecombiRate<<endl;
                     IntrogProfile<<endl<<endl;
-                    IntrogProfile<<"Run\tx\t";
+                    IntrogProfile<<"Run\tYear\tx\t";
                     for (int p(0);p<AutLociNumber;p++)
                         {
                             IntrogProfile<<"Locus"<<p<<"\t";
@@ -2667,7 +2786,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                 {
                     if(TotalGenes[x][0]!=0)//sinon, c'est que le deme n'est pas echantillonne
                         {
-                            IntrogProfile<<RUN<<"\t"<<x<<"\t";
+                            IntrogProfile<<RUN<<"\t"<<years<<"\t"<<x<<"\t";
                             for (int p(0);p<2*AutLociNumber+3;p++)//dont Z, W et la Mt
                                 {
                                     if(TotalGenes[x][p]!=0)
@@ -2713,7 +2832,6 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                                         {
                                             for(unsigned int a(0);a<NodesGrid[x][y][i][p].size();a++)
                                                 {
-//cout<<LowHybridBound<<" "<<HighHybridBound<<endl;
                                                     if ((x<LowHybridBound)&&(NodesGrid[x][y][i][AutLociNumber+3][0]==0))
                                                         {
                                                             SpTotGenes[0][p]++;
@@ -2830,14 +2948,14 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
 
             ofstream IntrogStats("IntrogStats.txt", ios::app);
             IntrogStats<<setprecision(3);
-            if (RUN==1)
+            if (RUN==1 && (years==WritePeriod || WritePeriod<0))
                 {
                     IntrogStats<<"#AllForward output file"<<endl;
                     IntrogStats<<"#Simulation Parameters :"<<endl;
                     IntrogStats<<"#DemeSize="<<DemeSize*2<<"\n#DimX="<<DimX<<"\n#DimY="<<DimY<<"\n#Xlimit="<<Xlimit<<"\n#Generation Number="<<GenerationNumber<<"\n#Allopatry last="<<AllopatryLast<<endl;// DemeSize must be multiplied by 2 because for the user it is the number of ind and for me the number of couple
                     IntrogStats<<"#HabitatSlideBegin"<<HabitatSlideBegin<<"\n#HabitatSlideEnd"<<HabitatSlideEnd<<"\n#HabitatSlideDepth"<<HabitatSlideDepth<<endl;
                     IntrogStats<<"#DemeSamplingRatio="<<DemeSamplingRatio<<"\n#IndMeanSampled="<<IndMeanSample<<endl;
-                    IntrogStats<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale<<"\n#geomFemale="<<geomFemale<<"\n#mMale"<<mMale<<"\n#geomMale"<<geomMale<<"\n#EdgeEffects="<<EdgeEffects<<endl;
+                    IntrogStats<<"#dispmax="<<DispMax<<"\n#mFemale="<<mFemale[0]<< ", "<<mFemale[1] <<"\n#geomFemale="<<geomFemale[0]<<", "<<geomFemale[1]<<"\n#mMale="<<mMale[0]<<", "<<mMale[1]<<"\n#geomMale="<<geomMale[0]<<", "<<geomMale[1]<<"\n#EdgeEffects="<<EdgeEffects<<endl;
                     IntrogStats<<"#FitnessNormal\t"<<"FitnessMaladaptation\t"<<"FitnessHybridFemale\t"<<"FitnessHybridMale\t"<<endl;
                     for (int i(0);i<AutLociNumber;i++)
                         {
@@ -2856,7 +2974,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                     IntrogStats<<"#InterRecombiRate="<<InterRecombiRate<<endl<<"#IntraRecombiRate="<<IntraRecombiRate<<endl;
                     IntrogStats<<"#Stats calculated within "<<0<<" ; "<<LowHybridBound<<" and "<<HighHybridBound<<" ; "<<DimX-1<<endl<<endl;
                     IntrogStats<<"#Mean number of introgressed genes by locus and by run"<<endl;
-                    IntrogStats<<"Run\tSp\t";
+                    IntrogStats<<"Run\tYear\tSp\t";
                     for (int p(0);p<AutLociNumber;p++)
                         {
                             IntrogStats<<"Aut"<<p<<"\t";
@@ -2869,7 +2987,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
 
             for (int s(0);s<2;s++)
                 {
-                    IntrogStats<<RUN<<"\t"<<s<<"\t";
+                    IntrogStats<<RUN<<"\t"<<years<<"\t"<<s<<"\t";
                     for (int p(0);p<AutLociNumber+2;p++)//tout les loci nucleaires
                         {
                             if (SpTotGenes[s][p]>0)
