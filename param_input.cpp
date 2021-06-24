@@ -426,6 +426,10 @@ int read_settings_file(const string filename) {
             if(cmp_nocase(var,"WriteIntrogStats")==0) {
                 evaluateBool(WriteIntrogStats,buf.substr(pos+1));
                 goto nextline;}
+            if(cmp_nocase(var,"WritePeriod")==0) {
+				stringstream strstr(buf.substr(pos+1));
+				strstr>>WritePeriod;
+				goto nextline;}
             if(cmp_nocase(var,"EdgeEffects")==0) {
                 evaluateBool(EdgeEffects,buf.substr(pos+1));
                 goto nextline;}

@@ -90,6 +90,7 @@ bool WriteGenepopOrigin=false;
 bool WriteGenepopAlsoPreContact=false;
 bool WriteIntrogProfile=false;
 bool WriteIntrogStats=false;
+int WritePeriod=-1;
 bool EdgeEffects=true;
 bool pauseGP=false;
 bool cinGetOnError=false;
@@ -156,6 +157,7 @@ int main(int argc, char *argv[])
             ofstream FstHeFile("FstHeFile.txt");
             FstHeFile.close();//Ouverture et fermeture pour effacer le fichier avant l'utilisation en fin de programme
         }
+    int WriteCounter(WritePeriod);
 
     //Parameter Modifications pre-run
     FTranslateFitness(FitnessNormal);
@@ -195,6 +197,7 @@ int main(int argc, char *argv[])
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
             //Taking a sample for Genepop before secondary contact
             vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            vector<vector<vector<vector<vector<int> > > > > NodesGrid; // Initialise the sample object for later time points writing.
             FGenepopFile(Alleles,NodesGridPre,RUN,true);
             NodesGridPre.clear();
 
@@ -215,16 +218,27 @@ int main(int argc, char *argv[])
                                 }
                         }
                     Demes=NextGeneration;
+
+                    if((WritePeriod>0) && (years<(GenerationNumber-1)))
+                    {
+                        WriteCounter--;
+                        if(WriteCounter==0)
+                        {
+                            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+                            FIntrogressionStats(Alleles, NodesGrid, RUN, years);
+                            WriteCounter = WritePeriod;
+                        }
+                    }
     cout<<"\r Generation "<<years<<" completed"<<flush;
                 }
 /***********************************************************************************///Sampling, calculations and output
             HabitatSlideDepth=FixedHabitatSlideDepth;//pour ecriture des fichiers
             NextGeneration.clear();
-            vector<vector<vector<vector<vector<int> > > > > NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
             FCorrectBounds(MovingLimit);
-            FProbaID(Alleles, NodesGrid, RUN, RunQIBD);
+            FProbaID(NodesGrid, RUN, RunQIBD);
             FGenepopFile(Alleles,NodesGrid,RUN,false);
-            FIntrogressionStats(Alleles, NodesGrid, RUN);
+            FIntrogressionStats(Alleles, NodesGrid, RUN, GenerationNumber);
 
 
             endrun=clock();
@@ -1700,7 +1714,7 @@ int FCorrectBounds(int& MovingLimit)//corrige les bornes de la zone consideree h
 
 /******************************************************************/
 
-int FProbaID(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, vector<vector<double> >& RunQIBD )
+int FProbaID(vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, vector<vector<double> >& RunQIBD )
 {
     int step;//contera les pas separant des individus
 
@@ -2651,7 +2665,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
 
 
 /******************************************************************/
-int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN)
+int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years)
 {
     if (WriteIntrogProfile==true)
         {
@@ -2729,7 +2743,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
             IntroLocus.resize(2*AutLociNumber+3);
             ofstream IntrogProfile("IntrogProfile.txt", ios::app);
             IntrogProfile<<setprecision(3);
-            if (RUN==1)//header une seule fois
+            if (RUN==1 && (years==WritePeriod || WritePeriod<0))//header une seule fois
                 {
                     IntrogProfile<<"#AllForward output file"<<endl;
                     IntrogProfile<<"#Simulation Parameters :"<<endl;
@@ -2754,7 +2768,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                     IntrogProfile<<"#MuRate="<<MuRate<<endl;
                     IntrogProfile<<"#InterRecombiRate="<<InterRecombiRate<<endl<<"#IntraRecombiRate="<<IntraRecombiRate<<endl;
                     IntrogProfile<<endl<<endl;
-                    IntrogProfile<<"Run\tx\t";
+                    IntrogProfile<<"Run\tYear\tx\t";
                     for (int p(0);p<AutLociNumber;p++)
                         {
                             IntrogProfile<<"Locus"<<p<<"\t";
@@ -2772,7 +2786,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                 {
                     if(TotalGenes[x][0]!=0)//sinon, c'est que le deme n'est pas echantillonne
                         {
-                            IntrogProfile<<RUN<<"\t"<<x<<"\t";
+                            IntrogProfile<<RUN<<"\t"<<years<<"\t"<<x<<"\t";
                             for (int p(0);p<2*AutLociNumber+3;p++)//dont Z, W et la Mt
                                 {
                                     if(TotalGenes[x][p]!=0)
@@ -2934,7 +2948,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
 
             ofstream IntrogStats("IntrogStats.txt", ios::app);
             IntrogStats<<setprecision(3);
-            if (RUN==1)
+            if (RUN==1 && (years==WritePeriod || WritePeriod<0))
                 {
                     IntrogStats<<"#AllForward output file"<<endl;
                     IntrogStats<<"#Simulation Parameters :"<<endl;
@@ -2960,7 +2974,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
                     IntrogStats<<"#InterRecombiRate="<<InterRecombiRate<<endl<<"#IntraRecombiRate="<<IntraRecombiRate<<endl;
                     IntrogStats<<"#Stats calculated within "<<0<<" ; "<<LowHybridBound<<" and "<<HighHybridBound<<" ; "<<DimX-1<<endl<<endl;
                     IntrogStats<<"#Mean number of introgressed genes by locus and by run"<<endl;
-                    IntrogStats<<"Run\tSp\t";
+                    IntrogStats<<"Run\tYear\tSp\t";
                     for (int p(0);p<AutLociNumber;p++)
                         {
                             IntrogStats<<"Aut"<<p<<"\t";
@@ -2973,7 +2987,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
 
             for (int s(0);s<2;s++)
                 {
-                    IntrogStats<<RUN<<"\t"<<s<<"\t";
+                    IntrogStats<<RUN<<"\t"<<years<<"\t"<<s<<"\t";
                     for (int p(0);p<AutLociNumber+2;p++)//tout les loci nucleaires
                         {
                             if (SpTotGenes[s][p]>0)

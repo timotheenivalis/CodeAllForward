@@ -55,8 +55,8 @@ Ccouples FRecombination(Ccouples& Parents);
 int FForwardMutation(Cindividus& Spouse, int& sex,std::vector<std::map<int,CAlleles> >& Alleles);
 std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > > FSampling(std::vector<std::vector<Cdemes> >& Demes,std::vector<std::map<int,CAlleles> >& Alleles);
 int FCorrectBounds(int& MovingLimit);
-int FProbaID(std::vector<std::map<int,CAlleles> >& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, std::vector<std::vector<double> >& RunQIBD );
+int FProbaID(std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, std::vector<std::vector<double> >& RunQIBD );
 int FGenepopFile(std::vector<std::map<int,CAlleles> >& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, bool const& PreContact);
-int FIntrogressionStats(std::vector<std::map<int,CAlleles> >& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN);
+int FIntrogressionStats(std::vector<std::map<int,CAlleles> >& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years);
 
 #endif // MAIN_H_INCLUDED
