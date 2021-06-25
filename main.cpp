@@ -1615,7 +1615,7 @@ int FForwardMutation(Cindividus& Spouse, int& sex,vector<map<int,CAlleles> >& Al
 }//end FForwardMutation
 
 /***********************************************************/
-vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> >& Demes,vector<map<int,CAlleles> >& Alleles)
+vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> > const& Demes,vector<map<int,CAlleles> >& Alleles)
 {
     vector<vector<int> > EmptyNode;//premiere dim gene, seconde dim alleles, Quand on les push_back on fait des ind
     EmptyNode.resize(2*AutLociNumber+3);//Autosomes + Mitochondria + W and Z Gonosomes + Adaptation locale(same numberas autosome)
@@ -1686,7 +1686,7 @@ vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> 
                                 }
                             ind=int(alea()*(IndList[sex].size()-1));
                             //if (ind>(signed(IndList[sex].size())-1)) ind=IndList[sex].size()-1;
-                            Cindividus *Blockedind=&Demes[x][y].Couples[IndList[sex][ind]].Spouses[sex];
+                            const Cindividus *Blockedind=&Demes[x][y].Couples[IndList[sex][ind]].Spouses[sex]; //Not 100 sure the const is correct
                             for (int p(0);p<AutLociNumber+3;p++)//Gene
                                 {
                                     for(unsigned int a(0);a<EmptyNode[p].size();a++)//homologue (1 ou 2)
@@ -1740,7 +1740,7 @@ vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> 
                 }
             AlleleList.clear();
         }
-    Alleles=CurrentAlleles;
+    //Alleles=CurrentAlleles;
     return NodesGrid;
 }//end FSampling()
 
