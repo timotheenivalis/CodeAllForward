@@ -75,7 +75,7 @@ extern bool WriteGenepopOrigin;
 extern bool WriteGenepopAlsoPreContact;
 extern bool WriteIntrogProfile;
 extern bool WriteIntrogStats;
-extern int WritePeriod;
+extern unsigned long WritePeriod;
 extern bool EdgeEffects;
 extern unsigned long int _ptSamplingSeed;
 extern bool pauseGP;

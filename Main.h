@@ -57,6 +57,6 @@ std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > > FSampli
 int FCorrectBounds(int& MovingLimit);
 int FProbaID(std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, std::vector<std::vector<double> >& RunQIBD );
 int FGenepopFile(std::vector<std::map<int,CAlleles> >& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, bool const& PreContact);
-int FIntrogressionStats(std::vector<std::map<int,CAlleles> >& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years);
+int FIntrogressionStats(std::vector<std::map<int,CAlleles> > const& Alleles, std::vector<std::vector<std::vector<std::vector<std::vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years);
 
 #endif // MAIN_H_INCLUDED

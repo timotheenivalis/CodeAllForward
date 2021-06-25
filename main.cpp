@@ -90,7 +90,7 @@ bool WriteGenepopOrigin=false;
 bool WriteGenepopAlsoPreContact=false;
 bool WriteIntrogProfile=false;
 bool WriteIntrogStats=false;
-int WritePeriod=-1;
+unsigned long WritePeriod=0;
 bool EdgeEffects=true;
 bool pauseGP=false;
 bool cinGetOnError=false;
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
             ofstream FstHeFile("FstHeFile.txt");
             FstHeFile.close();//Ouverture et fermeture pour effacer le fichier avant l'utilisation en fin de programme
         }
-    int WriteCounter(WritePeriod);
+    unsigned long WriteCounter(WritePeriod);
 
     //Parameter Modifications pre-run
     FTranslateFitness(FitnessNormal);
@@ -177,6 +177,7 @@ int main(int argc, char *argv[])
 
             unsigned long Key(1);//sert d'identifiant couple
             vector<map<int,CAlleles> > Alleles;//contient pour tous les loci (sauf adaptation locale) les Identifiants IAM des alleles, leur habitat d'origine et la sequence ISM
+            vector<map<int,CAlleles> > AllelesCopies;//contient pour tous les loci (sauf adaptation locale) les Identifiants IAM des alleles, leur habitat d'origine et la sequence ISM
             Alleles.resize(AutLociNumber+3);
             vector<vector<Cdemes> > Demes=Finitialisation(Key);//creation des demes, pleins d'individus, repartis dans l'espace
             double Ploidy(2.);
@@ -196,7 +197,8 @@ int main(int argc, char *argv[])
 
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
             //Taking a sample for Genepop before secondary contact
-            vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            AllelesCopies=Alleles;
+            vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, AllelesCopies);//choisi l'echantillon d'individus genotypes
             vector<vector<vector<vector<vector<int> > > > > NodesGrid; // Initialise the sample object for later time points writing.
             FGenepopFile(Alleles,NodesGridPre,RUN,true);
             NodesGridPre.clear();
@@ -209,32 +211,39 @@ int main(int argc, char *argv[])
             int MovingHybridNb(HybridNb);//nombre d'hybridations autorisees dans ce run.
             for (unsigned long years(1);years<GenerationNumber;years++)
                 {
+       // cout<<"Starting "<<years<<" "<<flush;
+
                     FInvasion(years,NextGeneration,MovingLimit,SlideCompteur,FixedHabitatSlideDepth);
+       // cout<<" Invasion "<<years<<" done"<<flush;
+
                     for (unsigned int x(0);x<DimX;x++)
                         {
                             for (unsigned int y(0);y<DimY;y++)
                                 {
                                     FFiliation(Demes,x,y, years, Key, NextGeneration, MigRates, AcceptanceRate,MovingHybridNb,Alleles);//initialiser une generation de juveniles, qui tireront chacun le couple dont ils sont issus, mettre les adultes au cimetiere
+       // cout<<" Filiation x="<<x<<" y="<<y<<" done"<<flush;
+
                                 }
                         }
                     Demes=NextGeneration;
+                    AllelesCopies=Alleles; // At the moment Fsampling may modify the object, so we copy it for safety
 
-                    if((WritePeriod>0) && (years<(GenerationNumber-1)))
+                   if((WritePeriod>0) && (years<(GenerationNumber-1)))
                     {
                         WriteCounter--;
                         if(WriteCounter==0)
                         {
-                            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+                            NodesGrid=FSampling(NextGeneration, AllelesCopies);//choisi l'echantillon d'individus genotypes
                             FIntrogressionStats(Alleles, NodesGrid, RUN, years);
                             WriteCounter = WritePeriod;
                         }
                     }
-    cout<<"\r Generation "<<years<<" completed"<<flush;
+  //  cout<<"\r Generation "<<years<<" completed"<<flush;
                 }
 /***********************************************************************************///Sampling, calculations and output
             HabitatSlideDepth=FixedHabitatSlideDepth;//pour ecriture des fichiers
             NextGeneration.clear();
-            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+            NodesGrid=FSampling(Demes, AllelesCopies);//choisi l'echantillon d'individus genotypes
             FCorrectBounds(MovingLimit);
             FProbaID(NodesGrid, RUN, RunQIBD);
             FGenepopFile(Alleles,NodesGrid,RUN,false);
@@ -442,12 +451,12 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
             Founders.push_back(Founders[i-1]);
             NodeLength=((Scale[0]*2.0/((Founders[i].size())*(Founders[i].size()-1.0)))*log(alea()));//longueur de branche mise a l'echelle de la taille pop
             time+=NodeLength;
-            int a=floor(alea()*Founders[i].size());
+            int a=floor(alea()*(Founders[i].size()-1));
             Nodes.find(Founders[i][a])->second.Parent=c;
             Nodes[c].Id=c;
             Nodes[c].Offspring.push_back(Founders[i][a]);//rajoute la premiere lignee descendante au parent
             Founders[i].erase(Founders[i].begin()+a);//efface le premier element tire pour le second tirage
-            a=floor(alea()*(Founders[i].size()));//tirage de la seconde lignee descendante
+            a=floor(alea()*(Founders[i].size()-1));//tirage de la seconde lignee descendante
             Nodes.find(Founders[i][a])->second.Parent=c;//met la nouvelle lignee en parent du second descendant
             Nodes[c].Offspring.push_back(Founders[i][a]);//rajoute la seconde lignee descendante au parent
             Founders[i].erase(Founders[i].begin()+a);//efface le second element pour la generation suivante
@@ -988,7 +997,7 @@ int FFiliation(vector<vector<Cdemes> >& Demes, unsigned int const& x, unsigned i
     vector<long double> myM(2);
     //Conteneurs pour les deux
     vector<long double> AddSum;
-    vector< int> Addc;
+    vector<int> Addc;
     vector<signed long> Addx;
     vector<signed long> Addy;
 
@@ -1003,8 +1012,12 @@ int FFiliation(vector<vector<Cdemes> >& Demes, unsigned int const& x, unsigned i
         }
     double migra0=MigRates[0][0];*/
 
+//    if(years >=2035){ cout << "Starting A"<<endl<<flush;}
+
 if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond grid size"<<endl;}
+
     vector<Ccouples> YoungCouples;
+
     for (unsigned int i(0);i<DemeSize;i++)
         {
             Ccouples Juv=Ccouples(years, x, y, Key);
@@ -1027,6 +1040,9 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                 }
             YoungCouples.push_back(Juv);
         }
+
+    //if(years >=2035){ cout << "Starting B"<<endl<<flush;}
+
     if(DimY>1)//2D
         {
             for (int X=-DispMax;X<=DispMax;X++)
@@ -1130,6 +1146,7 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                         }
                 }
         }//end 1D
+   // if(years >=2035){ cout << "Starting C"<<endl<<flush;}
 
 /*******///la, on tire un membre du couple dans la distri de proba creee juste avant, puis le second de la meme facon, et on a une certaine proba de le rejeter si les genotypes sont differents. On retire le second jusqu'a ce qu'il soit accepte
     long double randomC;//pour le choix du couple
@@ -1159,11 +1176,16 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                     w=AddSum[h];
                     h++;
                 }
+  //   if(years >=2035){ cout << "after AddSum select 1"<<endl<<flush;}
+
             h--;//on recule d'un pas pour prendre le dernier element avant le random
-//testgeomX[fabs(Addx[h]-int(x))]++;
+
             BlockedCouple=&Demes[Addx[h]][Addy[h]].Couples[Addc[h]];//Couple focal en pointeur
             YoungCouples[i].Spouses[j].Parents=(*BlockedCouple).Key;
+  //   if(years >=2035){ cout << "Just before Hangover1"<<endl<<flush;}
+
             FHangover((*BlockedCouple), YoungCouples[i].Spouses[j],j,Alleles);//transmet les genes d'adaptation locale des parents aux juveniles
+//     if(years >=2035){ cout << "Just after Hangover1"<<endl<<flush;}
 
             int k=fabs(1-j);//second membre du couple
             if (k==0)
@@ -1185,12 +1207,19 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                             w=AddSum[h];
                             h++;
                         }
+ //if(years >=2035){ cout << "after AddSum select 2"<<endl<<flush;}
+
                     h--;//on recule d'un pas pour prendre le dernier element avant le random
                     BlockedCouple=&Demes[Addx[h]][Addy[h]].Couples[Addc[h]];//Couple focal en pointeur
                     YoungCouples[i].Spouses[k].Parents=(*BlockedCouple).Key;
+ //if(years >=2035){ cout << "Just before Hangover2"<<endl<<flush;}
+
                     FHangover((*BlockedCouple), YoungCouples[i].Spouses[k],k,Alleles);//transmet les genes des parents aux juveniles
+//if(years >=2035){ cout << "Just after Hangover2"<<endl<<flush;}
                     random=alea();
                     choosy=FChoosy(choosy,YoungCouples[i],AcceptanceRate);
+//if(years >=2035){ cout << "Just after Choosy"<<endl<<flush;}
+
                     if(MovingHybridNb==0)//in the case we start with a positive MovingHybridNb and we have reached the point were no more hybridization is posible.
                        {
                             if((YoungCouples[i].Spouses[0].AdaptationLocus[0]==YoungCouples[i].Spouses[0].AdaptationLocus[1])&&(YoungCouples[i].Spouses[1].AdaptationLocus[0]==YoungCouples[i].Spouses[1].AdaptationLocus[1])) //Test si on a affaire a des individus purs
@@ -1212,6 +1241,9 @@ if (DispMax>(int(DimY)/2)&&DimY>1)        {cout<<"ERROR maximal dispersal beyond
                          }
                 }
         }//end for ( int i(0);i<Landscape[x][y].juv.size();i++)
+
+//if(years >=2035){ cout << "Finishing up"<<endl<<flush;}
+
     NextGeneration[x][y].Couples=YoungCouples;//on transfere YoungCouples dans un plus gros conteneur pour pouvoir les passer a Demes ensuite.
     return 0;
 }//end FFiliation()
@@ -1410,10 +1442,17 @@ int FHangover(Ccouples& Parents, Cindividus& Spouse, int& sex,vector<map<int,CAl
 {
      Ccouples RecombinatedParents=FRecombination(Parents);//Simulate recombination for this mating without modifying the original chromosomes in case of another mating of this parental couple
 
-     double randomFemale=int(alea()*2.);
-     if (randomFemale>1.) randomFemale=1.;
-     double randomMale=int(alea()*2.);
-     if (randomMale>1.) randomMale=1.;
+     int randomFemale(0);
+     if(alea()>=0.5)
+     {
+        randomFemale=1;
+     }
+     int randomMale(0);
+     if(alea()>=0.5)
+     {
+        randomMale=1;
+     }
+
     //local adaptation genes and Autosomal genes: All autosomal loci are now perfectly linked on an unique chromosome
     for (int g(0);g<AutLociNumber;g++)
         {
@@ -1424,7 +1463,11 @@ int FHangover(Ccouples& Parents, Cindividus& Spouse, int& sex,vector<map<int,CAl
             Spouse.Genes[g][1]=RecombinatedParents.Spouses[1].Genes[g][randomMale];
         }
 
-    double random=int(alea()*2.);
+     int random(0);
+     if(alea()>=0.5)
+     {
+        random=1;
+     }
     Spouse.Genes[AutLociNumber][0]=Parents.Spouses[1].Genes[AutLociNumber][random];//Chromosome Z vient de l'un des  2 Z du pere
     if (sex==0)//female
         {
@@ -1631,14 +1674,18 @@ vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> 
                     while((Captured>0)&&((IndList[0].size()!=0)||(IndList[1].size()!=0)))
                         {
                             Sample++;
-                            sex=int(alea()*2.);
-                            if (sex>1) sex=1;
+                            if(alea()>=0.5)
+                            {
+                                sex=0;
+                            }else{
+                                sex=1;
+                            }
                             if (IndList[sex].size()==0)
                                 {
                                     sex=fabs(1-sex);
                                 }
-                            ind=int(alea()*IndList[sex].size());
-                            if (ind>(signed(IndList[sex].size())-1)) ind=IndList[sex].size()-1;
+                            ind=int(alea()*(IndList[sex].size()-1));
+                            //if (ind>(signed(IndList[sex].size())-1)) ind=IndList[sex].size()-1;
                             Cindividus *Blockedind=&Demes[x][y].Couples[IndList[sex][ind]].Spouses[sex];
                             for (int p(0);p<AutLociNumber+3;p++)//Gene
                                 {
@@ -2665,7 +2712,7 @@ int FGenepopFile(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vecto
 
 
 /******************************************************************/
-int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years)
+int FIntrogressionStats(vector<map<int,CAlleles> > const& Alleles, vector<vector<vector<vector<vector<int> > > > >& NodesGrid, unsigned int const& RUN, unsigned long const& years)
 {
     if (WriteIntrogProfile==true)
         {
@@ -2743,7 +2790,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
             IntroLocus.resize(2*AutLociNumber+3);
             ofstream IntrogProfile("IntrogProfile.txt", ios::app);
             IntrogProfile<<setprecision(3);
-            if (RUN==1 && (years==WritePeriod || WritePeriod<0))//header une seule fois
+            if (RUN==1 && (years==WritePeriod || WritePeriod==0))//header une seule fois
                 {
                     IntrogProfile<<"#AllForward output file"<<endl;
                     IntrogProfile<<"#Simulation Parameters :"<<endl;
@@ -2948,7 +2995,7 @@ int FIntrogressionStats(vector<map<int,CAlleles> >& Alleles, vector<vector<vecto
 
             ofstream IntrogStats("IntrogStats.txt", ios::app);
             IntrogStats<<setprecision(3);
-            if (RUN==1 && (years==WritePeriod || WritePeriod<0))
+            if (RUN==1 && (years==WritePeriod || WritePeriod==0))
                 {
                     IntrogStats<<"#AllForward output file"<<endl;
                     IntrogStats<<"#Simulation Parameters :"<<endl;
