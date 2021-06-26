@@ -1,5 +1,5 @@
 %%%Demographic parameters%%%
-demesize=10 //en individus
+demesize=20 //en individus
 dimx=10
 dimy=6
 Xlimit=5//doit etre egal a dimX si un seul habitat

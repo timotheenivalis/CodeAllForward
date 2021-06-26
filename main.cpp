@@ -197,11 +197,15 @@ int main(int argc, char *argv[])
 
             vector<vector<Cdemes> > NextGeneration=Demes;//conteneur de la generation suivante, pour pouvoir transvaser
             //Taking a sample for Genepop before secondary contact
-            AllelesCopies=Alleles;
-            vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, AllelesCopies);//choisi l'echantillon d'individus genotypes
+//AllelesCopies=Alleles;
+            if(WriteGenepopAlsoPreContact==true)
+            {
+                vector<vector<vector<vector<vector<int> > > > > NodesGridPre=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
+                FGenepopFile(Alleles,NodesGridPre,RUN,true);
+                NodesGridPre.clear();
+            }
+
             vector<vector<vector<vector<vector<int> > > > > NodesGrid; // Initialise the sample object for later time points writing.
-            FGenepopFile(Alleles,NodesGridPre,RUN,true);
-            NodesGridPre.clear();
 
             double AcceptanceRate[3][3];
             FAcceptanceRate(AcceptanceRate);//fixe les taux d'acceptation du partenaire en fonction du genotype lors de la formation des couples
@@ -226,14 +230,14 @@ int main(int argc, char *argv[])
                                 }
                         }
                     Demes=NextGeneration;
-                    AllelesCopies=Alleles; // At the moment Fsampling may modify the object, so we copy it for safety
+    //AllelesCopies=Alleles; // At the moment Fsampling may modify the object, so we copy it for safety
 
                    if((WritePeriod>0) && (years<(GenerationNumber-1)))
                     {
                         WriteCounter--;
                         if(WriteCounter==0)
                         {
-                            NodesGrid=FSampling(NextGeneration, AllelesCopies);//choisi l'echantillon d'individus genotypes
+                            NodesGrid=FSampling(NextGeneration, Alleles);//choisi l'echantillon d'individus genotypes
                             FIntrogressionStats(Alleles, NodesGrid, RUN, years);
                             WriteCounter = WritePeriod;
                         }
@@ -243,7 +247,7 @@ int main(int argc, char *argv[])
 /***********************************************************************************///Sampling, calculations and output
             HabitatSlideDepth=FixedHabitatSlideDepth;//pour ecriture des fichiers
             NextGeneration.clear();
-            NodesGrid=FSampling(Demes, AllelesCopies);//choisi l'echantillon d'individus genotypes
+            NodesGrid=FSampling(Demes, Alleles);//choisi l'echantillon d'individus genotypes
             FCorrectBounds(MovingLimit);
             FProbaID(NodesGrid, RUN, RunQIBD);
             FGenepopFile(Alleles,NodesGrid,RUN,false);
@@ -1615,7 +1619,7 @@ int FForwardMutation(Cindividus& Spouse, int& sex,vector<map<int,CAlleles> >& Al
 }//end FForwardMutation
 
 /***********************************************************/
-vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> > const& Demes,vector<map<int,CAlleles> >& Alleles)
+vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> > const& Demes,vector<map<int,CAlleles> > const& Alleles)
 {
     vector<vector<int> > EmptyNode;//premiere dim gene, seconde dim alleles, Quand on les push_back on fait des ind
     EmptyNode.resize(2*AutLociNumber+3);//Autosomes + Mitochondria + W and Z Gonosomes + Adaptation locale(same numberas autosome)
@@ -1727,7 +1731,7 @@ vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> 
                         {
                             if (AlleleList.count(NodesGrid[x][y][i][p][a])==0)
                                 {
-                                    CurrentAlleles[p][AlleleCount]=Alleles[p][NodesGrid[x][y][i][p][a]];
+                                    CurrentAlleles[p][AlleleCount]=Alleles[p].find(NodesGrid[x][y][i][p][a])->second;
                                     AlleleList[NodesGrid[x][y][i][p][a]]=AlleleCount;
                                     NodesGrid[x][y][i][p][a]=AlleleCount;
                                     AlleleCount++;
