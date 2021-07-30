@@ -1,12 +1,12 @@
 %%%Demographic parameters%%%
 demesize=20 //number in individuals
-dimx=10
+dimx=50
 dimy=10
-Xlimit=7//doit etre egal a dimX si un seul habitat
-HabitatSlideBegin=0
-HabitatSlideEnd=0// if ==0 no habitat change
-HabitatSlideDepth=0// if ==0 no habitat change
-generationnumber=6000
+Xlimit=25//doit etre egal a dimX si un seul habitat
+HabitatSlideBegin=1
+HabitatSlideEnd=26// if ==0 no habitat change
+HabitatSlideDepth=25// if ==0 no habitat change
+generationnumber=1000
 AllopatryLast=80000  //in generation
 
 %%%Sampling parameters%%%
@@ -15,7 +15,7 @@ IndMeanSample=100
 
 %%%Dispersion parameters%%%
 dispmax=5
-mFemale=1e-009,1e-009
+mFemale=1e-001,1e-001
 geomFemale=0.1
 mMale=0.1
 geomMale=0.1
@@ -57,4 +57,4 @@ WriteGenepopOrigin=false //pop= deme, alleles=taxa of origin
 WriteGenepopAlsoPreContact=false
 WriteIntrogProfile=true
 WriteIntrogStats=true
-WritePeriod=100
+WritePeriod=20
