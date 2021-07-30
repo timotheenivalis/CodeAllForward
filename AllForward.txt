@@ -1,61 +1,60 @@
 %%%Demographic parameters%%%
-demesize=10 //en individus
+demesize=20 //number in individuals
 dimx=10
-dimy=1
-Xlimit=5//doit etre egal a dimX si un seul habitat
+dimy=10
+Xlimit=7//doit etre egal a dimX si un seul habitat
 HabitatSlideBegin=0
-HabitatSlideEnd=0// si ==0, pas de changement d'habitat
-HabitatSlideDepth=0 // si ==0, pas de changement d'habitat
-generationnumber=100
-AllopatryLast=80000 //in generation
+HabitatSlideEnd=0// if ==0 no habitat change
+HabitatSlideDepth=0// if ==0 no habitat change
+generationnumber=6000
+AllopatryLast=80000  //in generation
 
 %%%Sampling parameters%%%
 DemeSamplingRatio=1.
-IndMeanSample=10
+IndMeanSample=100
 
-%%%Dispersion parameters; one value if same across species, or two values%%%
-dispmax=3
-mFemale=0.01
+%%%Dispersion parameters%%%
+dispmax=5
+mFemale=1e-009,1e-009
 geomFemale=0.1
-mMale=0.01
+mMale=0.1
 geomMale=0.1
 EdgeEffects=true
 
 %%%Reproduction parameters%%%
-Swamping=false
-fitnessynormal=1.0
-fitnessmaladaptation=0.9,1.0	
-fitnesshybridfemale=0.3,1.0
-fitnesshybridmale=0.3,1.0
-fitnessMaladaptMt=1.0 //fitness of the bad strand (habitat 1)
-HybridNb=-1 //-1==Infini
+Swamping=true
+FitnessNormal=1.0
+fitnessmaladaptation=0.9, 1.0
+fitnesshybridfemale=0.9, 1.
+fitnesshybridmale=0.9, 1.
+fitnessMaladaptMt=1.0//fitness of the bad strand (habitat 1)
+HybridNb=-1//-1==Infini
 AcceptRates=1,1,1,1,1,1,1,1,1
 HomogamyAllLoci=false
-ChoosyFemale=0.5 //rate of females which starts the couple formation
+ChoosyFemale=0.5//rate of females which starts the couple formation
 
 %%%Markers parameters%%%
-MuRate=5e-005
-AutLociNumber=2
+MuRate=5e-004
+AutLociNumber=20
 InterRecombiRate=0.5 //must <= 0.5
 IntraRecombiRate=0.5 //must <= 0.5
 
 %%%Simulation parameters%%%
 RunNumber=10
-MigRatesCorrection=false
+MigRatesCorrection=true
 Pause=Final
-LowHybridBound=-1 //ATTENTION, en cas d'invasion, penser a regler
-HighHybridBound=-1
-SamplingSeed=123457
+LowHybridBound=50 //ATTENTION, en cas d'invasion, penser a regler
+HighHybridBound=0
+SamplingSeed=407
 
 %%%Writing parameters%%%
 WriteIdMatrix=false
-WriteIdentitiesProba=true
+WriteIdentitiesProba=false
 WriteFstHe=false
-WriteGenepopFile=true //pop=demes
-WriteGenepopIntrog=true //pop=taxa
-WriteGenepopOrigin=true //pop= deme, alleles=taxa of origin
-WriteGenepopAlsoPreContact=true
+WriteGenepopFile=false //pop=demes
+WriteGenepopIntrog=false //pop=taxa
+WriteGenepopOrigin=false //pop= deme, alleles=taxa of origin
+WriteGenepopAlsoPreContact=false
 WriteIntrogProfile=true
-WriteIntrogStats=false
-WritePeriod= 1
-
+WriteIntrogStats=true
+WritePeriod=100

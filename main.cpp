@@ -94,7 +94,6 @@ unsigned long WritePeriod=0;
 bool EdgeEffects=true;
 bool pauseGP=false;
 bool cinGetOnError=false;
-
 MTRand alea;
 unsigned long int _ptSamplingSeed=67144630;
 
@@ -173,6 +172,7 @@ int main(int argc, char *argv[])
         {
             startrun=clock();
             cout<<"Run number "<<RUN<<" begins"<<endl;
+            WriteCounter = WritePeriod;
 /***********************************************************************************///Initialisation et n-coalescent
 
             unsigned long Key(1);//sert d'identifiant couple
@@ -254,7 +254,6 @@ int main(int argc, char *argv[])
             FProbaID(NodesGrid, RUN, RunQIBD);
             FGenepopFile(Alleles,NodesGrid,RUN,false);
             FIntrogressionStats(Alleles, NodesGrid, RUN, GenerationNumber);
-
             endrun=clock();
             temps_ecoule=(double)(endrun-startrun)/CLOCKS_PER_SEC;
             cout<<endl<<"run "<<RUN<<" took "<<temps_ecoule<<endl<<endl;
@@ -424,13 +423,15 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
 
                     if (time>=(-AllopatryLast))
                         {
-                            int a=floor(alea()*(Present[j][i].size()-1));//tirage de la premiere lignee descendante
+                            int a=floor(alea()*(Present[j][i].size()));//tirage de la premiere lignee descendante
+                            if(a==Present[j][i].size()){a=Present[j][i].size()-1;}
                             Nodes.find(Present[j][i][a])->second.Parent=c;//met la nouvelle lignee en parent du premier descendant
                             Nodes[c].Id=c;//creation de la lignee parente
                             Nodes[c].habitat=Nodes.find(Present[j][i][a])->second.habitat;
                             Nodes[c].Offspring.push_back(Present[j][i][a]);//rajoute la premiere lignee descendante au parent
                             Present[j][i].erase(Present[j][i].begin()+a);//efface le premier element tire pour le second tirage
-                            a=floor(alea()*(Present[j][i].size()-1));//tirage de la seconde lignee descendante
+                            a=floor(alea()*(Present[j][i].size()));//tirage de la seconde lignee descendante
+                            if(a==Present[j][i].size()){a=Present[j][i].size()-1;}
                             Nodes.find(Present[j][i][a])->second.Parent=c;//met la nouvelle lignee en parent du second descendant
                             Nodes[c].Offspring.push_back(Present[j][i][a]);//rajoute la seconde lignee descendante au parent
                             Present[j][i].erase(Present[j][i].begin()+a);//efface le second element pour la generation suivante
@@ -456,12 +457,14 @@ int Fncoalescent(map<long,Cnodes>& Nodes, double& Ploidy)//n-coalescent avant le
             Founders.push_back(Founders[i-1]);
             NodeLength=((Scale[0]*2.0/((Founders[i].size())*(Founders[i].size()-1.0)))*log(alea()));//longueur de branche mise a l'echelle de la taille pop
             time+=NodeLength;
-            int a=floor(alea()*(Founders[i].size()-1));
+            int a=floor(alea()*(Founders[i].size()));
+            if(a==Founders[i].size()){a=Founders[i].size()-1;}
             Nodes.find(Founders[i][a])->second.Parent=c;
             Nodes[c].Id=c;
             Nodes[c].Offspring.push_back(Founders[i][a]);//rajoute la premiere lignee descendante au parent
             Founders[i].erase(Founders[i].begin()+a);//efface le premier element tire pour le second tirage
-            a=floor(alea()*(Founders[i].size()-1));//tirage de la seconde lignee descendante
+            a=floor(alea()*(Founders[i].size()));//tirage de la seconde lignee descendante
+            if(a==Founders[i].size()){a=Founders[i].size()-1;}
             Nodes.find(Founders[i][a])->second.Parent=c;//met la nouvelle lignee en parent du second descendant
             Nodes[c].Offspring.push_back(Founders[i][a]);//rajoute la seconde lignee descendante au parent
             Founders[i].erase(Founders[i].begin()+a);//efface le second element pour la generation suivante
@@ -666,6 +669,7 @@ int Ftransfer(map<long,Cnodes>& Nodes, vector<vector<Cdemes> >& Demes, int& Gene
 
 int FMigrations(vector<vector<vector<double> > >& MigRates)//corrige les taux de migration pour la 2D et normalise selon l'immigration maximale, ie au centre de la grille
  {
+    if(DimX==1){DispMax=0;}
     for (unsigned int taxon(0); taxon<2; taxon++)
     {
         if ((mFemale[taxon]>1)||(mMale[taxon]>1))
@@ -1693,7 +1697,7 @@ vector<vector<vector<vector<vector<int> > > > > FSampling(vector<vector<Cdemes> 
         }
     if(Sample==0)
         {
-            cerr<<"Sampling too much stringent, no individual sampled."<<endl;
+            cerr<<"Sampling too stringent, no individual sampled."<<endl;
         }
 
  //vector<map<int,CAlleles> > CurrentAlleles;
